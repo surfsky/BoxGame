@@ -1,0 +1,63 @@
+    /**获取方向箭头符号 */
+    private getDirectionArrow(direction: string): string {
+        switch (direction) {
+            case 'up': return '↑';
+            case 'down': return '↓';
+            case 'left': return '←';
+            case 'right': return '→';
+            default: return '';
+        }
+    }
+
+
+    /**获取方向向量 */
+    private getDirectionVector(direction: string): [number, number] {
+        switch (direction) {
+            case 'up': return [0, -1];
+            case 'down': return [0, 1];
+            case 'left': return [-1, 0];
+            case 'right': return [1, 0];
+            default: return [0, 0];
+        }
+    }
+
+    const restartButton = this.add.text(0, 20, '重新开始', {
+      fontSize: '24px',
+      color: '#ffffff',
+      backgroundColor: '#4a90e2',
+      padding: { x: 20, y: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+    .on('pointerdown', () => {
+      popup.hide();
+      this.levelManager.resetToFirstLevel();
+      this.cleanLevel();
+      this.initMap();
+    });
+
+    const nextLevelButton = this.add.text(0, 20, '下一关', {
+      fontSize: '24px',
+      color: '#ffffff',
+      backgroundColor: '#4a90e2',
+      padding: { x: 20, y: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+    .on('pointerdown', () => {
+      popup.hide();
+      const nextLevel = this.levelManager.nextLevel();
+      if (nextLevel) {
+        this.cleanLevel();
+        this.initMap();
+      }
+    });
+
+
+
+    public showChildrenBounds(): void {
+        this.each((child: Phaser.GameObjects.GameObject) => {
+            const gameObject = child as any;
+            if (!gameObject.width ||!gameObject.height) return;
+            const bounds = gameObject.getBounds();
+            const graphics = this.scene.add.graphics();
+            graphics.lineStyle(1, 0x0000ff);
+            graphics.strokeRectShape(bounds);
+        })
+    }

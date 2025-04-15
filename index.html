@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>箱子推推看</title>
+  <style>
+    @font-face {
+        font-family: 'AlimamaDaoLiTi';
+        src: url('./assets/fonts/AlimamaDaoLiTi.ttf');
+        font-display: swap;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #ffffff;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      overflow: hidden;
+    }
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    #game {
+      /*border: 2px solid #333;*/
+      /*border-radius: 4px;*/
+    }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

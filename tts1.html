@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>语音合成示例 - 中文</title>
+  <style>
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>语音合成示例 - 中文</h1>
+  <label for="textToSpeak">请输入要朗读的文本:</label>
+  <textarea id="textToSpeak" placeholder="请输入要朗读的文本..."></textarea>
+  <br>
+  <label for="voiceSelect">选择语音:</label>
+  <select id="voiceSelect">
+    <option value="">请选择一个语音</option>
+  </select>
+  <br>
+  <label for="volumeSlider">调整音量:</label>
+  <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1">
+  <br>
+  <button onclick="speak()">朗读</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // 初始化语音选择下拉框
+      getVoices().then(voices => {
+        const select = document.getElementById('voiceSelect');
+        voices.forEach(voice => {
+          if (voice.lang === 'zh-CN') {
+            const option = document.createElement('option');
+            option.value = voice.name;
+            option.textContent = `${voice.name} (${voice.lang})`;
+            select.appendChild(option);
+          }
+        });
+      });
+    });
+
+    function speak() {
+      if ('speechSynthesis' in window) {
+        const text = document.getElementById('textToSpeak').value;
+        const selectedVoiceName = document.getElementById('voiceSelect').value;
+        const volume = parseFloat(document.getElementById('volumeSlider').value);
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = volume;
+
+        getVoices().then(voices => {
+          const selectedVoice = voices.find(v => v.name === selectedVoiceName);
+          if (selectedVoice) {
+            utterance.voice = selectedVoice;
+          }
+          window.speechSynthesis.speak(utterance);
+        });
+      }
+    }
+
+    function getVoices() {
+      return new Promise((resolve) => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length !== 0) {
+          resolve(voices);
+        } else {
+          speechSynthesis.onvoiceschanged = () => {
+            resolve(speechSynthesis.getVoices());
+          };
+        }
+      });
+    }
+  </script>
+</body>
+
+</html>

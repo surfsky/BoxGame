@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Speech</title>
+    <style>
+        body {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #pauseButton, #stopButton {
+            background-color: #dc3545;
+        }
+        #resumeButton {
+            background-color: #28a745;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 15px;
+            }
+            button {
+                width: calc(50% - 10px);
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <textarea id="textInput" placeholder="请输入要转换为语音的文本"></textarea><br>
+    <button id="speakButton">朗读</button>
+    <button id="pauseButton">暂停</button>
+    <button id="resumeButton">继续</button>
+    <button id="stopButton">停止</button>
+
+    <script>
+        // 获取语音合成对象
+        const synth = window.speechSynthesis;
+
+        // 获取页面元素
+        const textInput = document.getElementById('textInput');
+        const speakButton = document.getElementById('speakButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const resumeButton = document.getElementById('resumeButton');
+        const stopButton = document.getElementById('stopButton');
+
+        // 朗读按钮点击事件
+        speakButton.addEventListener('click', function () {
+            const text = textInput.value;
+            if (text !== '') {
+                // 创建语音实例
+                const utterance = new SpeechSynthesisUtterance(text);
+                // 设置语音属性
+                utterance.lang = 'zh-CN';
+                utterance.rate = 1;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                // 开始朗读
+                synth.speak(utterance);
+            }
+        });
+
+        // 暂停按钮点击事件
+        pauseButton.addEventListener('click', function () {
+            if (synth.speaking && !synth.paused) {
+                synth.pause();
+            }
+        });
+
+        // 继续按钮点击事件
+        resumeButton.addEventListener('click', function () {
+            if (synth.paused) {
+                synth.resume();
+            }
+        });
+
+        // 停止按钮点击事件
+        stopButton.addEventListener('click', function () {
+            synth.cancel();
+        });
+    </script>
+</body>
+</html>
