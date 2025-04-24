@@ -17,11 +17,17 @@ Last Update：2025-04
 ## Task
 
 编辑关卡20
+实现冰块精灵
 美化成功页面
-
 control
     响应式布局
-    测试 TTS mobile(fail)
+    game.inputTounch 优化panel拖动逻辑
+    测试自带的 this.add.button() 对象
+
+测试 TTS mobile(fail)
+    html ok
+    phaser.js ok
+    phaser typescript fail
 
 
 ## Done

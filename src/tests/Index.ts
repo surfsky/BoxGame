@@ -27,6 +27,9 @@ import { TestLabel } from './TestLabel';
 import { TestTree } from './TestTree';
 import { TestMobile } from './TestMobile';
 
+//--------------------------------------------------------
+// 入口页面
+//--------------------------------------------------------
 /**测试场景列表 */
 export class Index extends Phaser.Scene {
     constructor() {
@@ -158,9 +161,12 @@ export class Index extends Phaser.Scene {
     }
 }
 
-// 创建游戏实例
-const config = {
-    type: Phaser.AUTO,
+//--------------------------------------------------------
+// 游戏入口
+//--------------------------------------------------------
+const game = new Phaser.Game({
+    backgroundColor: '#ffffff',
+    type: Phaser.CANVAS,
     scale: {
         mode: Phaser.Scale.RESIZE,
         parent: 'game',
@@ -175,11 +181,8 @@ const config = {
         TestDrag, TestResize, TestTable, TestScene,
         TestView, TestDialog, TestLabel, TestTree,
         TestMobile,
-    ],
-    backgroundColor: '#ffffff'
-};
-
-const game = new Phaser.Game(config);
+    ]
+});
 
 // 监听窗口大小变化
 window.addEventListener('resize', () => {

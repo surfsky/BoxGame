@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="./libs/phaser.min.js"></script>
+    <title>Text to Speech</title>
+    <style>
+        body {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        phaser-example {
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="phaser-example"></div>
+</body>
+</html>
+<script>
+// GAME
+var game = new Phaser.Game(400, 300, Phaser.CANVAS, 'phaser-example', { 
+    preload: () => {
+        game.load.spritesheet('button', 'libs/button_sprite_sheet.png', 193, 71);
+    }, 
+    create: () => {
+        var button1 = game.add.button(200, 200, 'button', btnClick, this, 2, 1, 0);
+        button1.anchor.setTo(0.5, 0.5);
+    }
+});
+function btnClick(button) {
+    speak('hello world');
+}
+
+// TTS
+const synth = window.speechSynthesis;
+function speak(text) {
+    if (text !== '') {
+        console.log("speak start");
+        const utterance = new SpeechSynthesisUtterance(text);
+        console.log('speak init');
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        synth.speak(utterance);
+        console.log('speak end');
+    }
+}
+
+
+
+</script>
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script>
+    const vConsole = new VConsole();
+</script>

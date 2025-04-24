@@ -8,8 +8,6 @@ import { MessageBox } from '../controls/overlays/MessageBox';
 
 /**测试表单控件场景 */
 export class TestTTS extends TestScene {
-    speaker = window.speechSynthesis;
-
     constructor() {
         super('TestTTS');
     }
@@ -23,22 +21,32 @@ export class TestTTS extends TestScene {
     create() {
         this.createTitle("TTS");
 
-
         var centerX = this.cameras.main.centerX;
         var centerY = this.cameras.main.centerY;
-
-        // 基础按钮测试
         const btn = new Button(this, centerX, centerY, '说人话').setOrigin(0.5);
         btn.onClick(()=>{
-            try{
-                this.speaker.speak(new SpeechSynthesisUtterance('你好。Hello world!'));
-            }
-            catch(e: any){
-                MessageBox.show(this, '错误', '浏览器不支持语音合成。' + e.message);
-            }
+            //var speaker = window.speechSynthesis;
+            //speaker.speak(new SpeechSynthesisUtterance('你好。Hello world!'));
+            speak('你好。Hello world!');
         });
-        
+    }
+}
 
+/**Speak */
+function speak(text: string) {
+    var synth = window.speechSynthesis;
+    if (text !== '') {
+        console.log('speak init');
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        console.log('speak init ok');
+        console.log(synth);
+        console.log(utterance);
+        synth.speak(utterance);
+        console.log('speak finished');
     }
 }
 
