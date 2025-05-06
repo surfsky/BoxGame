@@ -99,7 +99,7 @@ export class IconBar extends Control {
     setButtonIcon(key: string, icon: string) {
         const button = this.getButton(key);
         if (button) {
-            button.setIcon(icon);
+            button.setIcon(icon, 24, 24);
         }
         return this;
     }

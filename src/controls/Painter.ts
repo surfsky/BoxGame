@@ -1,53 +1,112 @@
 import Phaser, { Scene } from 'phaser';
-import { Control } from './Control';
-import { get } from 'http';
 
 /**
  * 绘画辅助类
  */
 export class Painter{
-    /**获取亮一点的色彩 */
-    public static getLightColor(color:number, alpha:number=0.5) : number{
+    //--------------------------------------------------
+    // Color
+    //--------------------------------------------------
+    /**将数字颜色转化为文本颜色 */
+    public static toColorText(color: number): string{
+        return `#${color.toString(16).padStart(6, '0')}`;
+    }
+
+    /**解析颜色字符串 */
+    public static toColorValue(color: string): number{
+        if(color.startsWith('#')){
+            return parseInt(color.substring(1), 16);
+        }
+        else{
+            // 改用网页的颜色解析器(未测试)
+            return parseInt(window.getComputedStyle(document.body).getPropertyValue(color), 16);
+            //return Theme.namedColor[color as keyof typeof Theme.namedColor];
+        }
+    }
+
+    /**获取RGB颜色值 */
+    public static getRGB(color: number) : { r: number, g: number, b: number } {
         const r = (color >> 16) & 0xFF;
         const g = (color >> 8) & 0xFF;
         const b = color & 0xFF;
+        return { r, g, b };
+    }
 
+    /**获取亮一点的色彩 */
+    public static getLightColor(color:number, alpha:number=0.5) : number{
         // 根据alpha增加RGB值来实现变亮效果
+        const { r, g, b } = Painter.getRGB(color);
         const lightR = Math.min(255, r + Math.floor((255 - r) * alpha));
         const lightG = Math.min(255, g + Math.floor((255 - g) * alpha));
         const lightB = Math.min(255, b + Math.floor((255 - b) * alpha));
-
         return Phaser.Display.Color.GetColor(lightR, lightG, lightB);
     }
 
+
     /** 获取暗一点的色彩 */
     public static getDarkColor(color:number, alpha:number=0.5) : number{
-        const r = (color >> 16) & 0xFF;
-        const g = (color >> 8) & 0xFF;
-        const b = color & 0xFF;
-
         // 根据alpha减少RGB值来实现变暗效果
+        const { r, g, b } = Painter.getRGB(color);
         const darkR = Math.max(0, r - Math.floor(r * alpha));
         const darkG = Math.max(0, g - Math.floor(g * alpha));
         const darkB = Math.max(0, b - Math.floor(b * alpha));
-
         return Phaser.Display.Color.GetColor(darkR, darkG, darkB);
     }
 
     /** 获取灰度色彩 */
     public static getGrayColor(color:number, alpha:number=0.5) : number{
-        const r = (color >> 16) & 0xFF;
-        const g = (color >> 8) & 0xFF;
-        const b = color & 0xFF;
-
         // 计算RGB的平均值来实现灰度效果
+        const { r, g, b } = Painter.getRGB(color);
         const gray = Math.floor((r + g + b) / 3);
         const finalGray = Math.floor(gray * alpha + ((r + g + b) / 3) * (1 - alpha));
-
         return Phaser.Display.Color.GetColor(finalGray, finalGray, finalGray);
     }
 
+    /** 获取色调颜色 */
+    public static getTintColor(color:number, newColor:number) : number{
+        // 计算RGB的平均值来实现灰度效果
+        const { r, g, b } = Painter.getRGB(color);
+        const c = Painter.getRGB(newColor);
+        const gray = Math.floor((r + g + b) / 3);
+        const finalR = Math.floor((c.r + gray) / 2);
+        const finalG = Math.floor((c.g + gray) / 2);
+        const finalB = Math.floor((c.b + gray) / 2);
+        return Phaser.Display.Color.GetColor(finalR, finalG, finalB);
+    }
 
+    /**获取HLS颜色值 */
+    public static getHLS(color:number) : {h:number, l:number, s:number}{
+        const { r, g, b } = Painter.getRGB(color);
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const l = (max + min) / 2;
+        const d = max - min;
+        let h = 0;
+        let s = 0;
+        if (d === 0) {
+            h = 0;
+        }
+        else if (max === r) {
+            h = ((g - b) / d) % 6;
+        }
+        else if (max === g) {
+            h = (b - r) / d + 2;
+        }
+        else {
+            h = (r - g) / d + 4;
+        }
+        h = Math.round(h * 60);
+        if (h < 0) {
+            h += 360;
+        }
+        s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+        return {h, l, s};
+    }
+
+
+    //--------------------------------------------------
+    // Image
+    //--------------------------------------------------
     /** 加载src网络图片，并显示在指定位置 */
     public static async drawImage(scene:Scene, src:string, x:number, y:number, w:number, h:number) : Promise<Phaser.GameObjects.Image>{
         var key = await Painter.loadImage(scene, src);

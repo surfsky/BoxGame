@@ -81,7 +81,7 @@
       "player": { "row": 3, "col": 4 }
     },
     {
-      "id": 20,
+      "id": 7,
       "difficulty": "easy",
       "map": [
         [1, 1, 1, 1, 8, 8],

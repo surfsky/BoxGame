@@ -80,7 +80,7 @@ export class AboutScene extends Phaser.Scene {
 
         // 返回按钮
         new Button(this, 60, 40, '', { width: 60, height: 60, radius:30, bgColor: GameConfig.colors.contrast })
-            .setIcon(GameConfig.icons.back.key, 1.5)
+            .setIcon(GameConfig.icons.back.key, 24, 24)
             .setAnimate()
             .onClick(() => SceneHelper.goScene(this, 'Welcome'))
             ;

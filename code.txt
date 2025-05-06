@@ -1,63 +1,131 @@
-    /**获取方向箭头符号 */
-    private getDirectionArrow(direction: string): string {
-        switch (direction) {
-            case 'up': return '↑';
-            case 'down': return '↓';
-            case 'left': return '←';
-            case 'right': return '→';
-            default: return '';
-        }
+    // 移除旧的 isLeftHandRaised 和 isRightHandRaised 方法
+    /*
+    private isLeftHandRaised(leftWrist: PoseLandmark, leftShoulder: PoseLandmark, rightWrist: PoseLandmark, rightShoulder: PoseLandmark): boolean {
+        // 左手腕大致与左肩同高
+        const isLeftArmLevel = Math.abs(leftWrist.y - leftShoulder.y) < 0.15;
+        // 左手腕在左肩的左侧较远处
+        const isLeftArmOut = leftWrist.x < leftShoulder.x - 0.25;
+        // 右手腕低于右肩 (避免双手抬起的情况)
+        const isRightArmDown = rightWrist.y > rightShoulder.y - 0.1;
+        return isLeftArmLevel && isLeftArmOut && isRightArmDown;
     }
 
+    private isRightHandRaised(rightWrist: PoseLandmark, rightShoulder: PoseLandmark, leftWrist: PoseLandmark, leftShoulder: PoseLandmark): boolean {
+        // 右手腕大致与右肩同高
+        const isRightArmLevel = Math.abs(rightWrist.y - rightShoulder.y) < 0.15;
+        // 右手腕在右肩的右侧较远处
+        const isRightArmOut = rightWrist.x > rightShoulder.x + 0.25;
+        // 左手腕低于左肩 (避免双手抬起的情况)
+        const isLeftArmDown = leftWrist.y > leftShoulder.y - 0.1;
+        return isRightArmLevel && isRightArmOut && isLeftArmDown;
+    }
+    */
 
-    /**获取方向向量 */
-    private getDirectionVector(direction: string): [number, number] {
-        switch (direction) {
-            case 'up': return [0, -1];
-            case 'down': return [0, 1];
-            case 'left': return [-1, 0];
-            case 'right': return [1, 0];
-            default: return [0, 0];
-        }
+    /**
+     * 判断是否双手举过头顶
+     */
+    private isHandsUp(leftWrist: PoseLandmark, rightWrist: PoseLandmark, leftShoulder: PoseLandmark, rightShoulder: PoseLandmark): boolean {
+        // 提高阈值，需要举得更高
+        return leftWrist.y < leftShoulder.y - 0.25 && rightWrist.y < rightShoulder.y - 0.25;
     }
 
-    const restartButton = this.add.text(0, 20, '重新开始', {
-      fontSize: '24px',
-      color: '#ffffff',
-      backgroundColor: '#4a90e2',
-      padding: { x: 20, y: 10 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-    .on('pointerdown', () => {
-      popup.hide();
-      this.levelManager.resetToFirstLevel();
-      this.cleanLevel();
-      this.initMap();
-    });
+    /**
+     * 判断是否下蹲
+     */
+    private isSquatting(leftHip: PoseLandmark, rightHip: PoseLandmark, leftKnee: PoseLandmark, rightKnee: PoseLandmark): boolean {
+        const hipY = (leftHip.y + rightHip.y) / 2;
+        const kneeY = (leftKnee.y + rightKnee.y) / 2;
+        // 提高阈值，需要蹲得更低
+        return kneeY > hipY + 0.3;
+    }
 
-    const nextLevelButton = this.add.text(0, 20, '下一关', {
-      fontSize: '24px',
-      color: '#ffffff',
-      backgroundColor: '#4a90e2',
-      padding: { x: 20, y: 10 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
-    .on('pointerdown', () => {
-      popup.hide();
-      const nextLevel = this.levelManager.nextLevel();
-      if (nextLevel) {
-        this.cleanLevel();
-        this.initMap();
-      }
-    });
+    /**
+     * 判断是否左手平举
+     */
+    private isLeftHandRaised(leftWrist: PoseLandmark, leftShoulder: PoseLandmark, rightWrist: PoseLandmark, rightShoulder: PoseLandmark): boolean {
+        // 左手腕大致与左肩同高
+        const isLeftArmLevel = Math.abs(leftWrist.y - leftShoulder.y) < 0.15;
+        // 左手腕在左肩的左侧较远处
+        const isLeftArmOut = leftWrist.x < leftShoulder.x - 0.25;
+        // 右手腕低于右肩 (避免双手抬起的情况)
+        const isRightArmDown = rightWrist.y > rightShoulder.y - 0.1;
+        return isLeftArmLevel && isLeftArmOut && isRightArmDown;
+    }
 
+    /**
+     * 判断是否右手平举
+     */
+    private isRightHandRaised(rightWrist: PoseLandmark, rightShoulder: PoseLandmark, leftWrist: PoseLandmark, leftShoulder: PoseLandmark): boolean {
+        // 右手腕大致与右肩同高
+        const isRightArmLevel = Math.abs(rightWrist.y - rightShoulder.y) < 0.15;
+        // 右手腕在右肩的右侧较远处
+        const isRightArmOut = rightWrist.x > rightShoulder.x + 0.25;
+        // 左手腕低于左肩 (避免双手抬起的情况)
+        const isLeftArmDown = leftWrist.y > leftShoulder.y - 0.1;
+        return isRightArmLevel && isRightArmOut && isLeftArmDown;
+    }
 
+    /**
+     * 判断是否站立
+     */
+    private isStanding(leftWrist: PoseLandmark, rightWrist: PoseLandmark, leftShoulder: PoseLandmark, rightShoulder: PoseLandmark, leftHip: PoseLandmark, rightHip: PoseLandmark, leftKnee: PoseLandmark, rightKnee: PoseLandmark): boolean {
+        const hipY = (leftHip.y + rightHip.y) / 2;
+        const kneeY = (leftKnee.y + rightKnee.y) / 2;
+        // 大致站直：手腕不高于肩膀太多，臀部高于膝盖
+        return leftWrist.y > leftShoulder.y - 0.1 && 
+               rightWrist.y > rightShoulder.y - 0.1 &&
+               hipY < kneeY + 0.15; // 允许稍微弯曲
+    }
 
-    public showChildrenBounds(): void {
-        this.each((child: Phaser.GameObjects.GameObject) => {
-            const gameObject = child as any;
-            if (!gameObject.width ||!gameObject.height) return;
-            const bounds = gameObject.getBounds();
-            const graphics = this.scene.add.graphics();
-            graphics.lineStyle(1, 0x0000ff);
-            graphics.strokeRectShape(bounds);
+    /**检查指定位置是否存在箱子 */ 
+    private existBox(row: number, col: number): boolean {
+        return this.boxes.some(box => {
+            const boxRow = Math.floor(box.y / this.tileSize);
+            const boxCol = Math.floor(box.x / this.tileSize);
+            return boxRow === row && boxCol === col;
         })
     }
+
+
+                if (marks[11].visibility! < 0.5 || marks[13].visibility! < 0.5 || marks[23].visibility! < 0.5 || marks[25].visibility! < 0.5) {
+                    // 关键点（肩、臀、手肘）不可见，则显示引导框
+                    this.showGuide(marks);
+                }
+
+
+        //var result = await new MessageBox(this, '恭喜过关！', '下一关').show();
+        //if (DialogResult.Ok == result) {
+        //    this.levelManager.goNextLevel();
+        //    this.cleanLevel();
+        //    this.initMap();
+        //}
+
+        // 创建胜利弹窗，使用游戏场景中心点
+        const sceneWidth = this.cameras.main.width;
+        const sceneHeight = this.cameras.main.height;
+        this.popup = new Popup(this, sceneWidth / 2, sceneHeight / 2, {
+            width: 400,
+            height: 300,
+            backgroundColor: 0xffffff,
+            borderRadius: 20,
+            modal: true,
+            animation: 'scale',
+            closeOnClickOutside: false
+        });
+
+        // 添加标题文本
+        const title = this.add.text(0, -40, '恭喜过关！', {
+            fontSize: '32px',
+            color: 'black',
+            fontFamily: GameConfig.fonts.title
+        }).setOrigin(0.5);
+        this.popup.addChild(title);
+
+        // 添加下一关按钮
+        var btn = new Button(this, 0, 100, '下一关')
+            .setOrigin(0.5)
+            .onClick(()=>{
+                this.goNextLevel()
+            });
+        this.popup.addChild(btn);
+        this.popup.show();

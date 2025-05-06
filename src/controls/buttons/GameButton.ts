@@ -2,7 +2,15 @@ import Phaser from 'phaser';
 import { Control } from '../Control';
 
 /**定制的游戏按钮控件，可响应点按长按等逻辑 */
-export class GameButton extends Control { //} Phaser.GameObjects.Container {
+export class GameButton extends Control {
+    clearTint() {
+        this.icon?.clearTint();
+    }
+    setTint(color: number) {
+        this.icon?.setTint(color);
+    }
+    
+
     //private graphics: Phaser.GameObjects.Graphics;
     private label?: Phaser.GameObjects.Text;
     private icon?: Phaser.GameObjects.Image;

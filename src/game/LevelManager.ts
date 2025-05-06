@@ -13,11 +13,11 @@ interface LevelData {
 }
 
 export class LevelManager {
-  private currentLevel: number = 1;
+  private currLevelId: number = 1;
   private levels: Level[] = [];
   private readonly STORAGE_KEY = 'boxgame_progress';
 
-  //
+  // sigleton
   private static instance: LevelManager;
   public static async getIntance() : Promise<LevelManager>{
     if (!LevelManager.instance) {
@@ -27,7 +27,7 @@ export class LevelManager {
     return LevelManager.instance;
   };
 
-  //
+  // load level data
   async loadLevels() {
     try {
       const response = await fetch('assets/levels/levels.json');
@@ -50,30 +50,30 @@ export class LevelManager {
     }
   }
 
-  getCurrentLevel(): Level | undefined {
-    return this.levels.find(level => level.id === this.currentLevel);
+  getCurrLevel(): Level | undefined {
+    return this.levels.find(level => level.id === this.currLevelId);
   }
 
   hasNextLevel(): boolean {
-    return this.currentLevel < this.levels.length;
+    return this.currLevelId < this.levels.length;
   }
 
   goNextLevel(): Level | undefined {
-    if (this.currentLevel < this.levels.length) {
-      this.currentLevel++;
-      return this.getCurrentLevel();
+    if (this.currLevelId < this.levels.length) {
+      this.currLevelId++;
+      return this.getCurrLevel();
     }
     return undefined;
   }
 
   resetToFirstLevel(): void {
-    this.currentLevel = 1;
+    this.currLevelId = 1;
   }
 
   setLevel(levelId: number): Level | undefined {
     if (levelId > 0 && levelId <= this.levels.length) {
-      this.currentLevel = levelId;
-      return this.getCurrentLevel();
+      this.currLevelId = levelId;
+      return this.getCurrLevel();
     }
     return undefined;
   }
@@ -84,12 +84,12 @@ export class LevelManager {
 
   setCurrentLevel(index: number): void {
     if (index >= 0 && index < this.levels.length) {
-      this.currentLevel = this.levels[index].id;
+      this.currLevelId = this.levels[index].id;
     }
   }
 
   unlockNextLevel(): void {
-    const currentIndex = this.levels.findIndex(level => level.id === this.currentLevel);
+    const currentIndex = this.levels.findIndex(level => level.id === this.currLevelId);
     if (currentIndex >= 0 && currentIndex + 1 < this.levels.length) {
       this.levels[currentIndex + 1].unlocked = true;
       

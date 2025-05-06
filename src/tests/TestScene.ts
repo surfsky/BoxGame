@@ -42,7 +42,7 @@ export class TestScene extends Phaser.Scene {
             radius: 20,
             bgColor: 0x2ecc71,
         }).setOrigin(0.5);
-        backButton.setIcon(GameConfig.icons.back.key, 1.4);
+        backButton.setIcon(GameConfig.icons.back.key, 24, 24);
         backButton.on('click', () => { this.scene.start('TestIndex'); });
 
 

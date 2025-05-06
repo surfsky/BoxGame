@@ -5,11 +5,15 @@ import { LevelManager } from './LevelManager'
 import { SceneHelper } from '../utils/SceneHelper'
 import { GameButton } from '../controls/buttons/GameButton'
 import { Button } from '../controls/buttons/Button'
+import { PoseController } from './PoseController'
+import { Toast } from '../controls/overlays/Toast'
+import { MessageBox } from '../controls/overlays/MessageBox'
+import { DialogResult } from '../controls/overlays/DialogResult'
 
 /**
  * @description: 推箱子游戏场景
  */
-export default class BoxGameScene extends Phaser.Scene {
+export class BoxGameScene extends Phaser.Scene {
     // data
     private map!: number[][]
     private gameContainer!: Phaser.GameObjects.Container;
@@ -17,7 +21,10 @@ export default class BoxGameScene extends Phaser.Scene {
     private boxes: Phaser.GameObjects.Sprite[] = [];
     private targets: Phaser.GameObjects.Sprite[] = [];
     private player!: Phaser.GameObjects.Sprite;
-    private playerPosition!: { row: number; col: number };
+    private playerPos!: { row: number; col: number };
+    private poseController?: PoseController;
+    private isPoseControlEnabled: boolean = false;
+    private directionButtons: { [key: string]: GameButton } = {};
 
     // ui/resouce
     private bgm!: Phaser.Sound.BaseSound;
@@ -25,6 +32,7 @@ export default class BoxGameScene extends Phaser.Scene {
     private levelManager!: LevelManager;
     private levelText!: Phaser.GameObjects.Text;
     private floor!: Phaser.GameObjects.Graphics;
+    private popup!: Popup
 
     //
     private tileSize = 48;
@@ -55,6 +63,8 @@ export default class BoxGameScene extends Phaser.Scene {
         this.load.svg('target', 'assets/images/target.svg');
         this.load.svg('back', 'assets/icons/back.svg');
         this.load.svg('refresh', 'assets/icons/refresh.svg');
+        // this.load.svg('camera', 'assets/icons/camera.svg'); // 旧图标
+        this.load.svg('human', 'assets/icons/human.svg'); // 新的人体图标, 请确保该文件存在
     }
 
     /**创建场景 */
@@ -69,7 +79,7 @@ export default class BoxGameScene extends Phaser.Scene {
         this.levelManager = await LevelManager.getIntance();
 
         // 创建游戏元素
-        this.createInfoPanel();
+        this.createTitle();
         this.initMap();
         this.createGameButtons();
         this.setupKeyEvents();
@@ -92,44 +102,88 @@ export default class BoxGameScene extends Phaser.Scene {
 
     /**创建方向按钮 */
     createDirectionButton(x: number, y: number, size: number, text: string, dx:number, dy:number){
+        const direction = dx === 0 ? (dy === 1 ? 'down' : 'up') : (dx === 1 ? 'right' : 'left');
         const button = new GameButton(this, x, y, size, size, text, {
-                fillColor: 0x4a90e2,
-                borderColor: 0xffffff,
-                borderWidth: 2,
-                borderRadius: size / 2,
-                isIcon: false
-            }).setOrigin(0.5);
+            fillColor: 0x4a90e2,
+            borderColor: 0xffffff,
+            borderWidth: 2,
+            borderRadius: size / 2,
+            isIcon: false
+        }).setOrigin(0.5);
         button.onPress(() => this.movePlayer(dx, dy));
+        this.directionButtons[direction] = button;
         return button;
     };  
 
     /**创建右侧游戏信息面板 */
-    private createInfoPanel() {
+    private createTitle() {
         const width = this.cameras.main.width;
-        const infoPanel = this.add.container(0, 0).setSize(this.cameras.main.width, this.titleHeight);
+        const panel = this.add.container(0, 0).setSize(this.cameras.main.width, this.titleHeight);
 
-        infoPanel.add(new Button(this, 30, 30, '', {width:40, height:40, radius:20, icon: 'back'}).onClick(()=>{ SceneHelper.goScene(this, 'Welcome') }));
-        this.levelText = this.add.text(100, 30, `关卡: ${this.levelManager.getCurrentLevel()?.id}`, {
+        // 返回按钮
+        var btnBack = new Button(this, 30, 30, '', {width:40, height:40, radius:20, icon:'back', iconWidth:30, iconHeight:30})
+            .onClick(()=>{this.scene.start('WelcomeScene');}).setOrigin(0, 0.5);
+        panel.add(btnBack);
+
+        // 等级文本
+        this.levelText = this.add.text(100, 30, `关卡 ${this.levelManager.getCurrLevel()?.id}`, {
             fontSize: '24px',
             color: '#000000',
             stroke: '#ffffff',
             strokeThickness: 4,
             fontFamily: GameConfig.fonts.title
         }).setOrigin(0, 0.5);
-        infoPanel.add(this.levelText);
+        panel.add(this.levelText);
 
-        //
-        var btn = new Button(this, width-40, 30, '', {width:40, height:40, radius:20, icon: 'refresh'})
+        // 重置按钮
+        var btn = new Button(this, width-40, 30, '', {width:40, height:40, radius:20, icon: 'refresh', iconWidth:30, iconHeight:30})
             .onClick(()=>{
-              this.cleanLevel();
-              this.initMap();
+                this.cleanLevel();
+                this.initMap();
             }).setOrigin(0.5);
-        infoPanel.add(btn);
+        panel.add(btn);
+
+        // 添加体感控制按钮
+        const poseControlButton = new Button(this, width-90, 30, '', {width:40, height:40, radius:20, icon: 'human', iconWidth:25, iconHeight:25}).setOrigin(0.5).onClick(async ()=>{
+            poseControlButton.setEnabled(false); // 禁用按钮
+            try {
+              Toast.show(this, '体感控制开启中...');
+              if (!this.poseController) {
+                    this.poseController = new PoseController(this, (direction: string) => {
+                        // 方向按钮变色效果
+                        const button = this.directionButtons[direction];
+                        if (button) {
+                            button.setTint(0x00ff00);
+                            this.time.delayedCall(200, () => button.clearTint());
+                        }
+                        // 移动玩家
+                        switch (direction) {
+                            case 'up':    this.movePlayer(0, -1); break;
+                            case 'down':  this.movePlayer(0, 1); break;
+                            case 'left':  this.movePlayer(-1, 0); break;
+                            case 'right': this.movePlayer(1, 0); break;
+                        }
+                    }, () => {
+                        poseControlButton.setEnabled(true); // 启用按钮
+                        Toast.show(this, '体感控制已开启');
+                    });
+                    await this.poseController.init();
+                }
+
+                await this.poseController.start();
+                poseControlButton.setEnabled(false); // 启用按钮
+            } catch (error) {
+                console.error("启动体感控制失败:", error);
+                this.poseController = undefined;
+                poseControlButton.setEnabled(true);
+            }
+        });
+        panel.add(poseControlButton);
     }
 
     /**更新右侧游戏信息面板 */
     updateInfoPanel(){
-        this.levelText.setText(`关卡: ${this.levelManager.getCurrentLevel()?.id}`);
+        this.levelText.setText(`关卡 ${this.levelManager.getCurrLevel()?.id}`);
     }
 
 
@@ -155,7 +209,7 @@ export default class BoxGameScene extends Phaser.Scene {
     /**初始化地图 */
     private initMap() {
         // level
-        const level = this.levelManager.getCurrentLevel();
+        const level = this.levelManager.getCurrLevel();
         this.map = level!.map;
 
         // tileSize 根据map 大小自动调整
@@ -180,125 +234,117 @@ export default class BoxGameScene extends Phaser.Scene {
         // 创建地图瓦片和目标点
         for (let row = 0; row < this.map.length; row++) {
             for (let col = 0; col < this.map[0].length; col++) {
-            const x = col * this.tileSize;
-            const y = row * this.tileSize;
-            var item = this.map[row][col];
+                const x = col * this.tileSize;
+                const y = row * this.tileSize;
+                var item = this.map[row][col];
 
-            // 创建地板
-            if (item != 8) {
-                this.floor.fillRect(x, y, this.tileSize, this.tileSize);
-            }
+                // 创建地板
+                if (item != 8) {
+                    this.floor.fillRect(x, y, this.tileSize, this.tileSize);
+                }
 
-            // 创建地板或墙
-            if (this.map[row][col] === 1) {
-                const wall = this.add.sprite(x, y, 'tiles').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
-                this.gameContainer.add(wall);
-                this.walls.push(wall);
-            }
-            
-            // 创建目标点（设置最底层深度）
-            if (this.map[row][col] === 3) {
-                const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(2);
-                this.gameContainer.add(target);
-                this.targets.push(target);
-            }
-            
-            // 创建箱子
-            if (this.map[row][col] === 2) {
-                const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(3);
-                this.gameContainer.add(box);
-                this.boxes.push(box);
-            }
+                // 创建地板或墙
+                if (this.map[row][col] === 1) {
+                    const wall = this.add.sprite(x, y, 'tiles').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
+                    this.gameContainer.add(wall);
+                    this.walls.push(wall);
+                }
+                
+                // 创建目标点（设置最底层深度）
+                if (this.map[row][col] === 3) {
+                    const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(2);
+                    this.gameContainer.add(target);
+                    this.targets.push(target);
+                }
+                
+                // 创建箱子
+                if (this.map[row][col] === 2) {
+                    const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(3);
+                    box.setDataEnabled().setData('pos', { row: row, col: col });
+                    this.gameContainer.add(box);
+                    this.boxes.push(box);
+                }
             }
         }
 
         // player position
-        this.playerPosition = {row: level!.player.row, col: level!.player.col}; // level!.player;  // 引用方式会导致player数据变化
-        this.player = this.add.sprite(this.playerPosition.col * this.tileSize, this.playerPosition.row * this.tileSize, 'player')
+        this.playerPos = {row: level!.player.row, col: level!.player.col}; // level!.player;  // 引用方式会导致player数据变化
+        this.player = this.add.sprite(this.playerPos.col * this.tileSize, this.playerPos.row * this.tileSize, 'player')
             .setDisplaySize(this.tileSize, this.tileSize)
             .setOrigin(0,0)
-            .setDepth(4)
-            ;
+            .setDepth(4);
         this.gameContainer.add(this.player);
     }
 
     //------------------------------------------------------------
     // game logic
     //------------------------------------------------------------
-  /**设置按键交互 */
-  private setupKeyEvents() {
-    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
-      switch (e.code) {
-        case 'ArrowUp':    this.movePlayer(0, -1);  break;
-        case 'ArrowDown':  this.movePlayer(0, 1);   break;
-        case 'ArrowLeft':  this.movePlayer(-1, 0);  break;
-        case 'ArrowRight': this.movePlayer(1, 0);   break;
-      }
-    });
-  }
+    /**设置按键交互 */
+    private setupKeyEvents() {
+        this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
+            switch (e.code) {
+                case 'ArrowUp':    this.movePlayer(0, -1);  break;
+                case 'ArrowDown':  this.movePlayer(0, 1);   break;
+                case 'ArrowLeft':  this.movePlayer(-1, 0);  break;
+                case 'ArrowRight': this.movePlayer(1, 0);   break;
+                case 'Enter':      this.closePopup();       break;
+            }
+        });
+    }
 
 
-  /**移动玩家精灵 */
-  private movePlayer(dx: number, dy: number) {
-    // 获取玩家相对于地图起始位置的坐标
-    const currentRow = this.playerPosition.row;
-    const currentCol = this.playerPosition.col;
-    const nextRow = currentRow + dy;
-    const nextCol = currentCol + dx;
-    
-    // 检查是否超出地图边界或撞墙
-    if (nextRow < 0 || nextRow >= this.map.length || nextCol < 0 || nextCol >= this.map[0].length || this.map[nextRow][nextCol] === 1) {
-      this.sound.play('error');
-      return;
+    /**移动玩家精灵 */
+    private movePlayer(dx: number, dy: number) {
+        // 获取玩家相对于地图起始位置的坐标
+        const currRow = this.playerPos.row;
+        const currCol = this.playerPos.col;
+        const nextRow = currRow + dy;
+        const nextCol = currCol + dx;
+        
+        // 检查是否超出地图边界或撞墙
+        if (nextRow < 0 || nextRow >= this.map.length || nextCol < 0 || nextCol >= this.map[0].length || this.map[nextRow][nextCol] === 1) {
+            this.sound.play('error');
+            return;
+        }
+        
+        // 检查是否推箱子
+        const box = this.findBox(nextRow, nextCol);
+        if (!box){
+            this.sound.play('move');
+            // 更新玩家位置
+            this.playerPos.row = nextRow;
+            this.playerPos.col = nextCol;
+            this.player.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
+        }
+        else {
+            const boxNextRow = nextRow + dy;
+            const boxNextCol = nextCol + dx;
+            
+            // 检查箱子移动位置是否合法
+            if (boxNextRow < 0 || boxNextRow >= this.map.length || 
+                boxNextCol < 0 || boxNextCol >= this.map[0].length || 
+                this.map[boxNextRow][boxNextCol] === 1 || 
+                this.findBox(boxNextRow, boxNextCol)
+            ) {
+                this.sound.play('error');
+                return;
+            }
+            
+            // 移动箱子
+            box.setPosition(boxNextCol * this.tileSize, boxNextRow * this.tileSize);
+            this.checkWinCondition();
+        }
     }
-    
-    // 检查是否推箱子
-    const box = this.findBox(nextRow, nextCol);
-    if (box) {
-      const boxNextRow = nextRow + dy;
-      const boxNextCol = nextCol + dx;
-      
-      // 检查箱子移动位置是否合法
-      if (boxNextRow < 0 || boxNextRow >= this.map.length || 
-          boxNextCol < 0 || boxNextCol >= this.map[0].length || 
-          this.map[boxNextRow][boxNextCol] === 1 || 
-          this.existBox(boxNextRow, boxNextCol)) {
-        this.sound.play('error');
-        return;
-      }
-      
-      // 移动箱子
-      box.setPosition(boxNextCol * this.tileSize, boxNextRow * this.tileSize);
-      this.checkWinCondition();
-    } else {
-      this.sound.play('move');
-    }
-    
-    // 更新玩家位置
-    this.playerPosition.row = nextRow;
-    this.playerPosition.col = nextCol;
-    this.player.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
-  }
 
-    /**检查指定位置是否存在箱子 */ 
-    private existBox(boxNextRow: number, boxNextCol: number): boolean {
-        return this.boxes.some(b => {
-            const bRow = Math.floor(b.y / this.tileSize)
-            const bCol = Math.floor(b.x / this.tileSize)
-            return bRow === boxNextRow && bCol === boxNextCol
-        })
-    }
 
     /**查找指定位置的箱子，若存在则返回箱子精灵 */
     private findBox(row: number, col: number) : Phaser.GameObjects.Sprite | undefined{
         return this.boxes.find(box => {
-            const boxRow = Math.floor(box.y / this.tileSize)
-            const boxCol = Math.floor(box.x / this.tileSize)
-            return boxRow === row && boxCol === col
+            const boxRow = Math.floor(box.y / this.tileSize);
+            const boxCol = Math.floor(box.x / this.tileSize);
+            return boxRow === row && boxCol === col;
         })
     }
-
-
 
     /**检测是否胜利 */
     private checkWinCondition() {
@@ -309,80 +355,69 @@ export default class BoxGameScene extends Phaser.Scene {
             });
         });
         if (allBoxesOnTarget) {
-            if (this.levelManager.hasNextLevel())
-                this.showLevelWin();
-            else
-                this.showGameWin();
+            if (this.levelManager.hasNextLevel()){
+                this.successSound.play();
+                this.levelManager.unlockNextLevel();
+                this.showMessage('恭喜过关！', '下一关', ()=>{ this.goNextLevel();})        
+            }
+            else{
+                this.sound.play('win');
+                this.showMessage('恭喜通关！', '重新开始', ()=>{ this.goFirstLevel();})        
+            }
         }
     }
 
-  /**游戏过关 */
-  private showLevelWin() {
-    this.successSound.play();
-    this.levelManager.unlockNextLevel();
+    /**显示一个对话框，包含一个标题和一个按钮 */
+    private showMessage(title: string, btnText: string, func: () => void) {
+        this.popup = new Popup(this, this.cameras.main.centerX, this.cameras.main.centerY, {
+            width: 400,
+            height: 300,
+            backgroundColor: 0xffffff,
+            borderRadius: 20,
+            modal: true,
+            animation: 'scale'
+        })
 
-    // 创建胜利弹窗，使用游戏场景中心点
-    const sceneWidth = this.cameras.main.width;
-    const sceneHeight = this.cameras.main.height;
-    const popup = new Popup(this, sceneWidth / 2, sceneHeight / 2, {
-      width: 400,
-      height: 300,
-      backgroundColor: 0xffffff,
-      borderRadius: 20,
-      modal: true,
-      animation: 'scale',
-      closeOnClickOutside: false
-    });
+        const lblTitle = this.add.text(0, -40, title, {
+            fontSize: '32px',
+            color: '#000000',
+            fontFamily: GameConfig.fonts.title
+        }).setOrigin(0.5)
+        this.popup.add(lblTitle)
 
-    // 添加标题文本
-    const title = this.add.text(0, -40, '恭喜过关！', {
-      fontSize: '32px',
-      color: 'black',
-      fontFamily: GameConfig.fonts.title
-    }).setOrigin(0.5);
-    popup.addChild(title);
+        var btn = new Button(this, 0, 100, btnText)
+            .setOrigin(0.5)
+            .onClick(func)
+        this.popup.add(btn)
+        this.popup.show()
+    }
 
-    // 添加下一关按钮
-    var btn = new Button(this, 0, 100, '下一关')
-        .setOrigin(0.5)
-        .onClick(()=>{
-            popup.hide();
+
+    /**关闭对话框 */
+    private closePopup(){
+        if (this.popup.visible){
+            if (this.levelManager.hasNextLevel())
+                this.goNextLevel();
+            else
+                this.goFirstLevel();
+        }
+    }
+
+    /**下一关 */
+    private goNextLevel() {
+        if (this.popup.visible){
+            this.popup.hide();
             this.levelManager.goNextLevel();
             this.cleanLevel();
             this.initMap();
-        });
-    popup.addChild(btn);
-    popup.show();
-  }
+        }
+    }
 
-  /**游戏通关 */
-  private showGameWin() {
-    this.sound.play('win');
-    const popup = new Popup(this, this.cameras.main.centerX, this.cameras.main.centerY, {
-      width: 400,
-      height: 300,
-      backgroundColor: 0xffffff,
-      borderRadius: 20,
-      modal: true,
-      animation: 'scale'
-    });
-
-    const title = this.add.text(0, -40, '恭喜通关！', {
-      fontSize: '32px',
-      color: '#000000',
-      fontFamily: GameConfig.fonts.title
-    }).setOrigin(0.5);
-    popup.add(title);
-
-    var btn = new Button(this, 0, 100, '重新开始')
-      .setOrigin(0.5)
-      .onClick(()=>{
-        popup.hide();
-        this.levelManager.resetToFirstLevel();
-        this.cleanLevel();
-        this.initMap();
-      });
-    popup.add(btn);
-    popup.show();
-  }
+    /**重新开始 */
+    private goFirstLevel() {
+        this.popup.hide()
+        this.levelManager.resetToFirstLevel()
+        this.cleanLevel()
+        this.initMap()
+    }
 }

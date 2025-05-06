@@ -11,7 +11,7 @@ import { SceneHelper } from '../utils/SceneHelper'
 export class WelcomeScene extends Phaser.Scene {
     private levelManager!: LevelManager;
     constructor() {
-        super('Welcome')
+        super('WelcomeScene')
     }
 
     /**预加载资源 */

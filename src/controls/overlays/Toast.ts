@@ -19,6 +19,14 @@ export class Toast extends Control {
     private options: ToastOptions;
     private tween: Phaser.Tweens.Tween | null = null;
 
+    /**show */
+    public static show(scene: Scene, message: string, options: ToastOptions = {}) {
+        const toast = new Toast(scene, message, options);
+        toast.show();
+        return toast;
+    }
+
+    /**constructor */
     constructor(scene: Scene, message: string, options: ToastOptions = {}) {
         super(scene, 0, 0);
 
@@ -52,6 +60,7 @@ export class Toast extends Control {
         this.y = -this.height;
     }
 
+    /**draw */
     protected draw() {
         super.draw();
 
@@ -68,7 +77,7 @@ export class Toast extends Control {
         );
     }
 
-
+    /**show */
     public show() {
         this.draw();
         var targetY = Toast.MARGIN_TOP + Toast.activeToasts.length * (this.height + Toast.MARGIN_BETWEEN);
@@ -85,6 +94,7 @@ export class Toast extends Control {
         return this;
     }
 
+    /**hide */
     public hide() {
         if (this.tween) {
             this.tween.stop();
