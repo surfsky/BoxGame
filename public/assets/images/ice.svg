@@ -1,0 +1,15 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- 冰块背景 -->
+  <rect width="100" height="100" fill="#d6f0ff" />
+  
+  <!-- 冰面纹理 -->
+  <path d="M0,0 L100,100" stroke="#a8e0ff" stroke-width="2" />
+  <path d="M100,0 L0,100" stroke="#a8e0ff" stroke-width="2" />
+  
+  <!-- 冰面高光 -->
+  <circle cx="25" cy="25" r="10" fill="#ffffff" opacity="0.3" />
+  <circle cx="75" cy="75" r="8" fill="#ffffff" opacity="0.3" />
+  
+  <!-- 冰面边缘 -->
+  <rect width="100" height="100" fill="none" stroke="#80c0e0" stroke-width="2" />
+</svg>

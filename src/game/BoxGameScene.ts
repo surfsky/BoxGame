@@ -61,6 +61,7 @@ export class BoxGameScene extends Phaser.Scene {
         this.load.svg('player', 'assets/images/player.svg');
         this.load.svg('box',    'assets/images/box.svg');
         this.load.svg('target', 'assets/images/target.svg');
+        this.load.svg('ice',    'assets/images/ice.svg'); // 加载冰块地面图片
         this.load.svg('back', 'assets/icons/back.svg');
         this.load.svg('refresh', 'assets/icons/refresh.svg');
         // this.load.svg('camera', 'assets/icons/camera.svg'); // 旧图标
@@ -250,6 +251,12 @@ export class BoxGameScene extends Phaser.Scene {
                     this.walls.push(wall);
                 }
                 
+                // 创建冰块地面
+                if (this.map[row][col] === 4) {
+                    const ice = this.add.sprite(x, y, 'ice').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
+                    this.gameContainer.add(ice);
+                }
+                
                 // 创建目标点（设置最底层深度）
                 if (this.map[row][col] === 3) {
                     const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(2);
@@ -315,6 +322,11 @@ export class BoxGameScene extends Phaser.Scene {
             this.playerPos.row = nextRow;
             this.playerPos.col = nextCol;
             this.player.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
+            
+            // 检查是否在冰面上，如果是则继续滑行
+            if (this.map[nextRow][nextCol] === 4) {
+                this.slideOnIce(nextRow, nextCol, dx, dy);
+            }
         }
         else {
             const boxNextRow = nextRow + dy;
@@ -332,6 +344,12 @@ export class BoxGameScene extends Phaser.Scene {
             
             // 移动箱子
             box.setPosition(boxNextCol * this.tileSize, boxNextRow * this.tileSize);
+            
+            // 检查箱子是否在冰面上，如果是则继续滑行
+            if (this.map[boxNextRow][boxNextCol] === 4) {
+                this.slideBoxOnIce(box, boxNextRow, boxNextCol, dx, dy);
+            }
+            
             this.checkWinCondition();
         }
     }
@@ -344,6 +362,61 @@ export class BoxGameScene extends Phaser.Scene {
             const boxCol = Math.floor(box.x / this.tileSize);
             return boxRow === row && boxCol === col;
         })
+    }
+    
+    /**玩家在冰面上滑行 */
+    private slideOnIce(row: number, col: number, dx: number, dy: number) {
+        const nextRow = row + dy;
+        const nextCol = col + dx;
+        
+        // 检查是否可以继续滑行
+        if (nextRow < 0 || nextRow >= this.map.length || 
+            nextCol < 0 || nextCol >= this.map[0].length || 
+            this.map[nextRow][nextCol] === 1 || 
+            this.findBox(nextRow, nextCol)) {
+            return; // 遇到障碍物停止滑行
+        }
+        
+        // 延迟一小段时间后继续滑行，模拟滑行效果
+        this.time.delayedCall(100, () => {
+            this.sound.play('move');
+            // 更新玩家位置
+            this.playerPos.row = nextRow;
+            this.playerPos.col = nextCol;
+            this.player.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
+            
+            // 如果下一个位置仍然是冰面，继续滑行
+            if (this.map[nextRow][nextCol] === 4) {
+                this.slideOnIce(nextRow, nextCol, dx, dy);
+            }
+        });
+    }
+    
+    /**箱子在冰面上滑行 */
+    private slideBoxOnIce(box: Phaser.GameObjects.Sprite, row: number, col: number, dx: number, dy: number) {
+        const nextRow = row + dy;
+        const nextCol = col + dx;
+        
+        // 检查是否可以继续滑行
+        if (nextRow < 0 || nextRow >= this.map.length || 
+            nextCol < 0 || nextCol >= this.map[0].length || 
+            this.map[nextRow][nextCol] === 1 || 
+            this.findBox(nextRow, nextCol)) {
+            return; // 遇到障碍物停止滑行
+        }
+        
+        // 延迟一小段时间后继续滑行，模拟滑行效果
+        this.time.delayedCall(100, () => {
+            // 移动箱子
+            box.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
+            
+            // 如果下一个位置仍然是冰面，继续滑行
+            if (this.map[nextRow][nextCol] === 4) {
+                this.slideBoxOnIce(box, nextRow, nextCol, dx, dy);
+            }
+            
+            this.checkWinCondition();
+        });
     }
 
     /**检测是否胜利 */
