@@ -3,6 +3,8 @@ import { Scene } from 'phaser';
 
 /**
  * @description: 体感控制器
+ * @author: surfsky
+ * @date: 2023-09-15
  */
 export class PoseController {
     private scene: Scene;
@@ -10,23 +12,28 @@ export class PoseController {
     private video: HTMLVideoElement;
     private canvas: HTMLCanvasElement;
     private isRunning: boolean = false;
-    private onPoseDetected: (direction: string) => void;
-    private onClose?: () => void;
+    private onPoseFunc?: (direction: string) => void;
+    private onInitFunc?: () => void;
+
+    //
     private lastPose: string | null = null;
     private lastTime: number = 0;
     private readonly detectMs: number = 500; // 500ms 内不重复发送相同指令
+
+    //
     private guideBox: {
         x: number;
         y: number;
         width: number;
         height: number;
     };
-    private isGuideVisible: boolean = false;
 
-    constructor(scene: Scene, onPoseDetected: (direction: string) => void, onClose?: () => void) {
+
+    //------------------------------------------------------------
+    // Life Cycle
+    //------------------------------------------------------------
+    constructor(scene: Scene) {
         this.scene = scene;
-        this.onClose = onClose;
-        this.onPoseDetected = onPoseDetected;
         
         // 创建视频元素
         this.video = document.createElement('video');
@@ -54,34 +61,36 @@ export class PoseController {
         };
     }
 
-    /****************************************************
-     * 初始化姿态识别模型
-     ****************************************************/
+    /**设置初始化结束事件 */
+    public onInit(func: () => void) : this {
+        this.onInitFunc = func;
+        return this;
+    }
+
+    /**设置姿势检测事件 */
+    public onPose(func: (direction: string) => void) : this {
+        this.onPoseFunc = func;
+        return this;
+    }
+
+    /**初始化姿势识别模型 */
     async init() {
         try {
             // 初始化视觉任务
-            const vision = await FilesetResolver.forVisionTasks(
-                //"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
-                "https://unpkg.com/@mediapipe/tasks-vision/wasm"
-            );
-
             // 创建姿态识别器
+            const vision = await FilesetResolver.forVisionTasks("https://unpkg.com/@mediapipe/tasks-vision/wasm");
             this.poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
-                },
+                baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"},
                 runningMode: "VIDEO"
             });
-
             console.log("姿态识别模型加载成功");
+            this.onInitFunc && this.onInitFunc();
         } catch (error) {
             console.error("初始化姿态识别模型失败:", error);
         }
     }
 
-    /**
-     * 开始体感控制
-     */
+    /**开始体感控制*/
     async start() {
         if (this.isRunning) return;
 
@@ -110,9 +119,7 @@ export class PoseController {
         }
     }
 
-    /**
-     * 停止体感控制
-     */
+    /**停止体感控制*/
     stop() {
         if (!this.isRunning) return;
 
@@ -128,9 +135,10 @@ export class PoseController {
         console.log("体感控制已停止");
     }
 
-    /**************************************************
-     * 检测姿态
-     **************************************************/
+    //------------------------------------------------------------
+    // 检测姿态
+    //------------------------------------------------------------
+    /**检测姿态*/
     private async detectPose() {
         if (!this.isRunning || !this.poseLandmarker) return;
 
@@ -168,12 +176,11 @@ export class PoseController {
         return true;
     }
 
-    /**************************************************
-     * 绘制检测图
-     **************************************************/
-    /**
-     * 显示引导框和视频
-     */
+
+    //------------------------------------------------------------
+    // 绘制检测图
+    //------------------------------------------------------------
+    /**显示引导框和视频*/
     private showGuide(landmarks?: PoseLandmark[]) {
         this.video.style.display = 'block';
         this.canvas.style.display = 'block';
@@ -273,9 +280,7 @@ export class PoseController {
         });
     }
 
-    /**
-     * 隐藏引导框和视频
-     */
+    /**隐藏引导框和视频*/
     private hideGuide() {
         this.video.style.display = 'none';
         this.canvas.style.display = 'none';
@@ -284,9 +289,11 @@ export class PoseController {
     }
 
 
-    /***************************************************
-     * 分析姿态并触发相应动作
-     **************************************************/
+    //------------------------------------------------------------
+    // 姿态分析
+    // Y轴朝下，以下判定统一将：下部的器官节点放在不等式左侧。
+    //------------------------------------------------------------
+    /**分析姿态并触发相应动作*/
     private analyzePose(landmarks: PoseLandmark[]) {
         const now = performance.now();
 
@@ -320,11 +327,15 @@ export class PoseController {
         else if (this.isRightArmOut(rightShoulder, rightShoulder, leftElbow, rightElbow)) {
             this.trySendPose('right', now);
         }
+        else if (this.isSalute(rightShoulder, rightElbow, rightWrist)){
+            this.trySendPose('ok', now);
+        }
+        else if (this.isOutman(rightElbow, rightWrist, leftElbow, leftWrist)){
+            this.trySendPose('ok', now);
+        }
     }
 
-    /**
-     * 尝试发送姿态检测结果，并进行节流处理
-     */
+    /**尝试发送姿态检测结果，并进行节流处理*/
     private trySendPose(pose: string, currentTime: number) {
         // 节流处理
         if (currentTime < this.lastTime + this.detectMs) {
@@ -337,12 +348,14 @@ export class PoseController {
             }
         }
         console.warn(`检测到姿势: ${pose}`);
-        this.onPoseDetected(pose);
+        this.onPoseFunc && this.onPoseFunc(pose);
         this.lastPose = pose;
         this.lastTime = currentTime;
     }
 
-    /**判断是否站立 (稍微放宽条件)*/
+    //------------------------------------------------------------
+    //------------------------------------------------------------
+    /**判断是否站立*/
     private isStanding(
         leftShoulder: PoseLandmark, rightShoulder: PoseLandmark, 
         leftElbow: PoseLandmark, rightElbow: PoseLandmark, 
@@ -354,39 +367,60 @@ export class PoseController {
         const kneeY = (leftKnee.y + rightKnee.y) / 2;
         const elbowY = (leftElbow.y + rightElbow.y) / 2;
 
-        // 臀部明显高于膝盖
-        // 手肘低于肩膀 (允许自然下垂或轻微抬起)
-        const isLegsStraight = kneeY > hipY + 0.1;
-        const isElbowDown = elbowY > shoulderY + 0.1;
+        // 肩肘臀膝判定
+        const isLegsStraight = kneeY > hipY + 0.1;      // 膝明显低于臀。Y 轴朝下
+        const isElbowDown = elbowY > shoulderY + 0.1;   // 肘明显低于肩。
         return isLegsStraight && isElbowDown;
     }
 
 
     /**判断是否下蹲 (臀部略高于膝盖)*/
     private isSquatting(leftHip: PoseLandmark, rightHip: PoseLandmark, leftKnee: PoseLandmark, rightKnee: PoseLandmark): boolean {
-        // 调整阈值，要求臀部更接近或低于膝盖
-        return leftHip.y >= leftKnee.y - 0.1 || rightHip.y >= rightKnee.y - 0.1;
+        return leftKnee.y <= leftHip.y + 0.1 && rightKnee.y <= rightHip.y + 0.1;
+        //return leftHip.y >= leftKnee.y - 0.1 || rightHip.y >= rightKnee.y - 0.1;
     }
 
     /*** 判断是否双手举过头顶 (左右手肘都高过肩膀)*/
     private isHandsUp(leftShoulder: PoseLandmark, rightShoulder: PoseLandmark, leftElbow: PoseLandmark, rightElbow: PoseLandmark): boolean {
-        return leftElbow.y < leftShoulder.y - 0.05 && rightElbow.y < rightShoulder.y - 0.05;
+        return leftShoulder.y > leftElbow.y + 0.05 && rightShoulder.y > rightElbow.y + 0.05;
+        //return leftElbow.y < leftShoulder.y - 0.05 && rightElbow.y < rightShoulder.y - 0.05;
     }
 
     /**判断是否左臂向外侧平举 (左肩与左肘大致水平，右肘无平举动作，避免与上举冲突)*/
     private isLeftArmOut(leftShoulder: PoseLandmark, rightShoulder: PoseLandmark, leftElbow: PoseLandmark, rightElbow: PoseLandmark): boolean {
         var d = 0.10;  // 0.15
-        const isLeftArmLevel  = leftElbow.y  > leftShoulder.y  - d && leftElbow.y  < leftShoulder.y  + d;
-        const isRightArmLevel = rightElbow.y > rightShoulder.y - d && rightElbow.y < rightShoulder.y + d;
+        const isLeftArmLevel  = this.between(leftElbow.y,  leftShoulder.y+d,  leftShoulder.y-d);
+        const isRightArmLevel = this.between(rightElbow.y, rightShoulder.y+d, rightShoulder.y-d);
         return isLeftArmLevel && !isRightArmLevel;
     }
 
     /**判断是否右臂向外侧平举 (右肩与右肘大致水平，左肘无平举动作，避免与上举冲突)*/
     private isRightArmOut(leftShoulder: PoseLandmark, rightShoulder: PoseLandmark, leftElbow: PoseLandmark, rightElbow: PoseLandmark): boolean {
         var d = 0.10;  // 0.15
-        const isLeftArmLevel  = leftElbow.y  > leftShoulder.y  - d && leftElbow.y  < leftShoulder.y  + d;
-        const isRightArmLevel = rightElbow.y > rightShoulder.y - d && rightElbow.y < rightShoulder.y + d;
+        const isLeftArmLevel  = this.between(leftElbow.y,  leftShoulder.y+d,  leftShoulder.y-d);
+        const isRightArmLevel = this.between(rightElbow.y, rightShoulder.y+d, rightShoulder.y-d);
         return isRightArmLevel && !isLeftArmLevel;
+    }
+
+    /**判断是否是奥特曼姿势（右手弯肘竖立，左手平举掌放在右肘处，） */
+    private isOutman(rightElbow: PoseLandmark, rightWrist: PoseLandmark, leftElbow: PoseLandmark, leftWrist: PoseLandmark): boolean {
+        var d = 0.10;
+        const isRightElbowUp  = rightElbow.y > rightWrist.y + d;
+        const isLeftHandLevel = this.between(leftWrist.y, leftElbow.y - d, leftElbow.y + d);
+        return isRightElbowUp && isLeftHandLevel;
+    }
+
+    /**判断是否是敬礼姿势（右肘水平于右肩，右手腕位于右肩上方 */
+    private isSalute(rightShoulder: PoseLandmark, rightElbow: PoseLandmark, rightWrist: PoseLandmark): boolean {
+        var d = 0.10;
+        const isRightElbowLevel = this.between(rightElbow.y, rightShoulder.y - d, rightShoulder.y + d);
+        const isRightWristAbove = rightShoulder.y > rightWrist.y + 0.05  && this.between(rightWrist.x, rightShoulder.x - d, rightShoulder.x + d);
+        return isRightElbowLevel && isRightWristAbove;
+    }
+
+    /**判断值是否处于中间 */
+    private between(value: number, min: number, max: number): boolean {
+        return value >= min && value <= max;
     }
 
 }

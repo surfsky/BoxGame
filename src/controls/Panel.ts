@@ -1,13 +1,27 @@
 import { Control } from "./Control";
 
-/**可拖动滚动面板 */
-export class Panel extends Control{ // Phaser.GameObjects.Container {
+/**
+ * 可拖动滚动面板 
+ * Last Update : 2023-03-26 17:57:49
+ * Author : surfsky
+ * History:
+ *  2023-03-26 17:57:49 : + scrollToEnd()
+*/
+export class Panel extends Control {
     private contentH: number = 0;
     private contentMask: Phaser.GameObjects.Graphics;
     private bg: Phaser.GameObjects.Rectangle;
+    private scrollBar!: Phaser.GameObjects.Graphics;
+
+    /**销毁*/
+    public destroy(): void {
+        this.contentMask.destroy();
+        this.list.forEach(child => child.destroy());
+        super.destroy();
+    }
 
     /**
-     * 创建一个可滚动的面板
+     * 创建滚动面板
      * @param {Phaser.Scene} scene - 场景实例
      * @param {number} x - 面板的x坐标
      * @param {number} y - 面板的y坐标
@@ -39,13 +53,6 @@ export class Panel extends Control{ // Phaser.GameObjects.Container {
         this.setScrollbar(handerColor, handerAlpha);
     }
 
-    /**添加子元素并更新内容高度 */
-    //public override add(child: Phaser.GameObjects.GameObject | Phaser.GameObjects.GameObject[]): this {
-    //    super.add(child);
-    //    this.resetContentHeight();
-    //    return this;
-    //}
-
     /**重新计算内容高度并更新滚动条 */
     public resetContentHeight(): void {
         this.contentH = this.contentH || this.calcContentHeight();
@@ -68,10 +75,33 @@ export class Panel extends Control{ // Phaser.GameObjects.Container {
         var contentH = this.contentH;
         if (contentH <= h) return;
         // 创建滑块(滑块的高度是根据内容的实际高度和面板的可视高度来计算的)
-        const scrollBar = this.createRoundRect(scene, this.x + w - 10, this.y, 8, h / contentH * h, 5, handerColor, handerAlpha).setDepth(999);
-        scrollBar.setMask(new Phaser.Display.Masks.GeometryMask(scene, this.contentMask));
-        this.setDragEvents(scene, scrollBar);
+        this.scrollBar = this.createRoundRect(scene, this.x + w - 10, this.y, 8, h / contentH * h, 5, handerColor, handerAlpha).setDepth(999);
+        this.scrollBar.setMask(new Phaser.Display.Masks.GeometryMask(scene, this.contentMask));
+        this.setDragEvents(scene, this.scrollBar);
     }
+
+
+    /**设置滚动位置 */
+    public setScrollPosition(position: number): void {
+        const minY = this.y - (this.contentH - this.height);
+        const maxY = this.y;
+        const newY = Phaser.Math.Clamp(position, minY, maxY);
+        this.y = newY;
+        this.scrollBar.y = this.y - minY;
+    }
+
+    /**滚动到顶部 */
+    public scrollToEnd(duration: number=5000){
+        // 动画滚动面板的滚动轴，让文字上移
+        this.scene.tweens.add({
+            targets: this,
+            y: this.y - (this.contentH - this.height),
+            duration: duration,
+            ease: 'Linear',
+            repeat: -1
+        });
+    }
+
 
     /**设置定位方式 */
     setOrigin(x: number, y: number): this {
@@ -93,11 +123,6 @@ export class Panel extends Control{ // Phaser.GameObjects.Container {
         });
         return Math.max(maxHeight, this.height);
     }
-
-
-    /**设置实际内容高度 */
-    //public setContentHeight(contentH?: number) {
-    //}
 
     /**设置拖拽逻辑 */
     private setDragEvents(scene: Phaser.Scene, scrollBar: Phaser.GameObjects.Graphics) {
@@ -213,12 +238,4 @@ export class Panel extends Control{ // Phaser.GameObjects.Container {
         return graphics;
     }
 
-    /**
-     * 销毁滚动面板
-     */
-    public destroy(): void {
-        this.contentMask.destroy();
-        this.list.forEach(child => child.destroy());
-        super.destroy();
-    }
 }

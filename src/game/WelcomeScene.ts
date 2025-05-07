@@ -42,7 +42,7 @@ export class WelcomeScene extends Phaser.Scene {
 
     /**创建标题 */
     private createTitle() {
-        this.add.text(this.cameras.main.centerX, 40, '推箱子', {
+        this.add.text(this.cameras.main.centerX, 40, '箱子推推看', {
             fontSize: '36px',
             color: '#000000',
             stroke: '#ffffff',
@@ -53,77 +53,74 @@ export class WelcomeScene extends Phaser.Scene {
 
   /**创建版权信息 */
   createCopyright() {
-    const copyrightText = this.add.text(
-      this.cameras.main.centerX,
-      this.cameras.main.height - 30,
-      '© 2023 推箱子',
-      {
-        fontSize: '14px',
-        color: '#000000',
-        stroke: '#ffffff',
-        strokeThickness: 4,
-        fontFamily: GameConfig.fonts.title
-      }
-    ).setOrigin(0.5);
-    copyrightText.setInteractive().on('pointerdown', () => {
-        this.scene.start('AboutScene');
-    });
+      const lblCopyright = this.add.text(
+        this.cameras.main.centerX,
+        this.cameras.main.height - 30,
+        '© 2025 箱子推推看',
+        {
+            fontSize: '14px',
+            color: '#000000',
+            stroke: '#ffffff',
+            strokeThickness: 4,
+            fontFamily: GameConfig.fonts.title
+        }
+      ).setOrigin(0.5).setInteractive().on('pointerdown', () => {
+          this.scene.start('AboutScene');
+      });
   }
 
   /**创建关卡选择面板 */
   private createLevelPanel() {
-    const panelWidth = this.game.canvas.width - 40;// 600
-    const panelHeight = this.game.canvas.height - 180; //400
-    const panel = new Panel(
-      this,
-      20,
-      100,
-      panelWidth,
-      panelHeight,
-      panelHeight * 2,
-      10
-    );
+      const panelWidth = this.game.canvas.width - 40;// 600
+      const panelHeight = this.game.canvas.height - 180; //400
+      const panel = new Panel(
+        this,
+        20,
+        100,
+        panelWidth,
+        panelHeight,
+        panelHeight * 2,
+        10
+      );
 
-    // 计算起始位置
-    const buttonSize = 40;
-    const spacing = 10;
-    const columns = panelWidth / (buttonSize + spacing) | 0;
-    const startX = spacing;
-    const startY = spacing * 1.5;
+      // 计算起始位置
+      const buttonSize = 40;
+      const spacing = 10;
+      const columns = panelWidth / (buttonSize + spacing*2) | 0;
+      const startX = spacing;
+      const startY = spacing * 1.5;
 
-    // 创建关卡按钮
-    const levels = this.levelManager.getLevels()
-    levels.forEach((level, index) => {
-      const col = index % columns
-      const row = Math.floor(index / columns)
-      const x = startX + col * (buttonSize + spacing) + buttonSize/2;
-      const y = startY + row * (buttonSize + spacing) + buttonSize/2;
+      // 创建关卡按钮
+      const levels = this.levelManager.getLevels();
+      levels.forEach((level, index) => {
+          const col = index % columns;
+          const row = Math.floor(index / columns);
+          const x = startX + col * (buttonSize + spacing) + buttonSize/2;
+          const y = startY + row * (buttonSize + spacing) + buttonSize/2;
 
-      // 创建按钮
-      const button = new Button(this, x, y, (index + 1).toString(), {
-        width: buttonSize,
-        height: buttonSize,
-        bgColor: level.unlocked ? 0x4a90e2 : 0x95a5a6,
-        radius: 10
-      }).setOrigin(0, 0);  // todo
+          // 创建按钮
+          const button = new Button(this, x, y, (index + 1).toString(), {
+            width: buttonSize,
+            height: buttonSize,
+            bgColor: level.unlocked ? 0x4a90e2 : 0x95a5a6,
+            radius: 10
+          }).setOrigin(0, 0);  // todo
 
-      // 如果关卡未解锁，添加锁定图标
-      if (!level.unlocked) {
-        const lock = this.add.image(x, y, 'lock')
-          .setDisplaySize(24, 24)
-          .setOrigin(0.5)
-        panel.add(lock)
-      }
+          // 如果关卡未解锁，添加锁定图标
+          if (!level.unlocked) {
+              const lock = this.add.image(x, y, 'lock').setDisplaySize(24, 24).setOrigin(0.5);
+              panel.add(lock);
+          }
 
-      // 添加点击事件
-      if (level.unlocked) {
-        button.onClick(() => {
-          this.levelManager.setCurrentLevel(index);
-          this.scene.start('BoxGame');
-        })
-      }
+          // 添加点击事件
+          if (level.unlocked) {
+            button.onClick(() => {
+                this.levelManager.setCurrentLevel(index);
+                this.scene.start('BoxGameScene');
+            })
+          }
 
-      panel.add(button)
-    })
+          panel.add(button);
+      });
   }
 }

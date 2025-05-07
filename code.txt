@@ -129,3 +129,56 @@
             });
         this.popup.addChild(btn);
         this.popup.show();
+
+
+            const isLeftArmLevel  = leftElbow.y  > leftShoulder.y  - d && leftElbow.y  < leftShoulder.y  + d;
+        const isRightArmLevel = rightElbow.y > rightShoulder.y - d && rightElbow.y < rightShoulder.y + d;
+
+                //"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+        //const currRow = this.playerPos.row;
+        //const currCol = this.playerPos.col;
+        //const currRow = currPos.row;
+        //const currCol = currPos.col;
+            //this.playerPos.row = nextRow;
+            //this.playerPos.col = nextCol;
+
+
+    /**获取精灵行列位置数据 */
+    getSpiritPos(spirit: Phaser.GameObjects.Sprite) : {row:number, col:number} {
+        return spirit.getData('pos') as {row:number, col:number};
+    }
+
+    /**设置精灵行列位置数据 */
+    setSpiritPos(spirit: Phaser.GameObjects.Sprite, row: number, col: number) {
+        spirit.setData('pos', { row: row, col: col });
+    }
+    
+                //this.playerPos.row = nextRow;
+                //this.playerPos.col = nextCol;
+
+        //this.time.delayedCall(100, () => {
+        //    this.sound.play('move');
+        //    this.player.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
+        //    this.playerPos.row = nextRow;
+        //    this.playerPos.col = nextCol;
+        //    this.player.setData('pos', { row: nextRow, col: nextCol });
+        //    
+        //    // 如果下一个位置仍然是冰面，继续滑行
+        //    if (this.map[nextRow][nextCol] === 4) {
+        //        this.slidePlayerOnIce(nextRow, nextCol, dx, dy);
+        //    }
+        //});
+
+        // 延迟一小段时间后继续滑行，模拟滑行效果
+        //this.time.delayedCall(100, () => {
+        //    // 移动箱子
+        //    box.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
+        //    box.setData('pos', { row: nextRow, col: nextCol });
+        //    
+        //    // 如果下一个位置仍然是冰面，继续滑行
+        //    if (this.map[nextRow][nextCol] === 4) {
+        //        this.slideBoxOnIce(box, nextRow, nextCol, dx, dy);
+        //    }
+        //    
+        //    this.checkWinCondition();
+        //});
