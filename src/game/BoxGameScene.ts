@@ -9,6 +9,14 @@ import { PoseController } from './PoseController'
 import { Toast } from '../controls/overlays/Toast'
 import { MessageBox } from '../controls/overlays/MessageBox'
 import { DialogResult } from '../controls/overlays/DialogResult'
+import { AIController, GameState } from './AIController'
+
+/**Position */
+export interface Pos{
+    name: string;
+    row: number;
+    col: number;
+}
 
 /**
  * @description: 推箱子游戏场景
@@ -32,6 +40,10 @@ export class BoxGameScene extends Phaser.Scene {
     private poseController?: PoseController;
     private isPoseEnable: boolean = false;
     private arrowButtons: { [key: string]: GameButton } = {};
+    
+    // AI控制器
+    private aiController?: AIController;
+    private btnAI!: Button;
 
     // ui/resouce
     private sndBg!: Phaser.Sound.BaseSound;
@@ -70,15 +82,18 @@ export class BoxGameScene extends Phaser.Scene {
         this.load.svg('ice',    'assets/images/ice.svg'); // 加载冰块地面图片
         this.load.svg('back', 'assets/icons/back.svg');
         this.load.svg('refresh', 'assets/icons/refresh.svg');
-        this.load.svg('human', 'assets/icons/human.svg'); // 新的人体图标, 请确保该文件存在
+        this.load.svg('human', 'assets/icons/human.svg'); // 人体图标
+        this.load.svg('ai', 'assets/icons/ai.svg'); // AI图标，请确保该文件存在
     }
 
     /**创建场景 */
     async create() {
         // 加载资源
         this.sndSuccess = this.sound.add('success');
-        this.sndBg = this.sound.add('bgm');
-        this.sndBg.play({ loop: true, volume: 0.3 });
+        if (!this.sndBg){
+            this.sndBg = this.sound.add('bgm');
+            this.sndBg.play({ loop: true, volume: 0.3 });
+        }
         this.add.image(0, 0, 'bg').setOrigin(0,0).setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
         // data
@@ -130,6 +145,13 @@ export class BoxGameScene extends Phaser.Scene {
                 await this.enablePose(this.isPoseEnable);
             });
         panel.add(this.btnPose);
+        
+        // 添加AI自动过关按钮
+        this.btnAI = new Button(this, width-140, 30, '', {width:40, height:40, radius:20, icon: 'ai', iconWidth:25, iconHeight:25})
+            .setOrigin(0.5)
+            .setEnabled(true)
+            .onClick(async ()=>{ await this.runAI();});
+        panel.add(this.btnAI);
     }
 
 
@@ -159,6 +181,9 @@ export class BoxGameScene extends Phaser.Scene {
         this.targets = [];
         this.ices = [];
         this.isPlayerSliding = false;
+
+        // ui
+        this.btnAI.setEnabled(true);
     }
 
     /**初始化地图 */
@@ -201,6 +226,7 @@ export class BoxGameScene extends Phaser.Scene {
                 // 创建冰块地面
                 if (v === 4) {
                     const ice = this.add.sprite(x, y, 'ice').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(0);
+                    this.setSpiritData(ice, 'ice', row, col);
                     this.gameContainer.add(ice);
                     this.ices.push(ice);
                 }
@@ -208,6 +234,7 @@ export class BoxGameScene extends Phaser.Scene {
                 // 创建墙
                 if (v === 1) {
                     const wall = this.add.sprite(x, y, 'wall').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
+                    this.setSpiritData(wall, 'wall', row, col);
                     this.gameContainer.add(wall);
                     this.walls.push(wall);
                 }
@@ -215,6 +242,7 @@ export class BoxGameScene extends Phaser.Scene {
                 // 创建目标点（设置最底层深度）
                 if (v === 3) {
                     const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(2);
+                    this.setSpiritData(target, 'target', row, col);
                     this.gameContainer.add(target);
                     this.targets.push(target);
                 }
@@ -222,7 +250,7 @@ export class BoxGameScene extends Phaser.Scene {
                 // 创建箱子
                 if (v === 2) {
                     const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(4);
-                    box.setName('box').setDataEnabled().setData('pos', { row: row, col: col });  // 可将行列数据保存在spirit中
+                    this.setSpiritData(box, 'box', row, col);
                     this.gameContainer.add(box);
                     this.boxes.push(box);
                 }
@@ -235,11 +263,20 @@ export class BoxGameScene extends Phaser.Scene {
             .setDisplaySize(this.tileSize, this.tileSize)
             .setOrigin(0,0)
             .setDepth(4)
-            .setDataEnabled()
-            .setData('pos', { row: playerPos.row, col: playerPos.col});
+            ;
+        this.setSpiritData(this.player, 'player', playerPos.row, playerPos.col);
         this.gameContainer.add(this.player);
     }
 
+    /**获取精灵行列位置数据 */
+    public getSpiritData(spirit: Phaser.GameObjects.Sprite) : Pos {
+        return spirit.getData('pos') as Pos;
+    }
+
+    /**设置精灵行列位置数据 */
+    public setSpiritData(spirit: Phaser.GameObjects.Sprite, name:string, row: number, col: number) {
+        spirit.setDataEnabled().setData('pos', {name:name, row: row, col: col });
+    }
 
     //------------------------------------------------------------
     // 游戏操作控制（虚拟按键、键盘、体感）
@@ -337,7 +374,7 @@ export class BoxGameScene extends Phaser.Scene {
     // 游戏逻辑
     //------------------------------------------------------------
     /**移动玩家精灵 */
-    private movePlayer(dx: number, dy: number) {
+    public movePlayer(dx: number, dy: number) {
         if (this.isPlayerSliding) return;
 
         // 获取玩家相对于地图起始位置的坐标
@@ -500,7 +537,8 @@ export class BoxGameScene extends Phaser.Scene {
             backgroundColor: 0xffffff,
             borderRadius: 20,
             modal: true,
-            animation: 'scale'
+            animation: 'scale',
+            closeOnClickOutside: false
         })
 
         const lblTitle = this.add.text(0, -40, title, {
@@ -518,6 +556,16 @@ export class BoxGameScene extends Phaser.Scene {
     }
 
 
+
+    
+    /**
+     * 显示提示信息
+     * 供AIController使用
+     */
+    public showToast(message: string): void {
+        Toast.show(this, message);
+    }
+    
     /**关闭对话框 */
     private closePopup(){
         if (this.popup.visible){
@@ -545,4 +593,47 @@ export class BoxGameScene extends Phaser.Scene {
         this.cleanLevel()
         this.initMap()
     }
+
+    //--------------------------------------------------------
+    // AI 寻路
+    //--------------------------------------------------------
+    /**
+     * 切换AI自动过关状态
+     */
+    private async runAI(): Promise<void> {
+        this.btnAI.setEnabled(false);
+        if (!this.aiController) {
+            this.aiController = new AIController(this);
+        }
+        await this.aiController.start();
+        this.btnAI.setEnabled(true);
+    }
+    
+    /**
+     * 获取当前地图数据
+     * 供AIController使用
+     */
+    public getMap(): number[][] {
+        return this.map;
+    }
+    
+    /**
+     * 获取当前游戏状态
+     * 供AIController使用
+     */
+    public getGameState(): GameState  {
+        const player = this.getSpiritData(this.player);
+        const walls = this.walls.map(wall => this.getSpiritData(wall));
+        const ices = this.ices.map(ice => this.getSpiritData(ice));
+        const boxes = this.boxes.map(box => this.getSpiritData(box));
+        const targets = this.targets.map(target => this.getSpiritData(target));
+        return {
+            player: player,
+            walls: walls,
+            ices: ices,
+            boxes: boxes,
+            targets: targets,
+            map: this.map
+        };
+    }    
 }

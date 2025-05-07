@@ -108,7 +108,7 @@ export class WelcomeScene extends Phaser.Scene {
 
           // 如果关卡未解锁，添加锁定图标
           if (!level.unlocked) {
-              const lock = this.add.image(x, y, 'lock').setDisplaySize(24, 24).setOrigin(0.5);
+              const lock = this.add.image(x, y, 'lock').setDisplaySize(24, 24).setOrigin(0);
               panel.add(lock);
           }
 
