@@ -330,11 +330,11 @@ export class Button extends Control {
         this.isEnabled = value;
         // 若不可用显示为灰色，且不响应事件
         if (!value) {
-            this.setInteractive({ cursor: 'default' });
+            //this.setInteractive({ cursor: 'default' });
             this.alpha = this.options.disabledAlpha!;
         }
         else {
-            this.setInteractive({ cursor: 'pointer' });
+            //this.setInteractive({ cursor: 'pointer' });
             this.alpha = 1;
         }
         return this;

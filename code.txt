@@ -182,3 +182,22 @@
         //    
         //    this.checkWinCondition();
         //});
+
+
+
+
+        //if (boxes.length !== targets.length) return false;
+        //return boxes.every(box => {
+        //    if (!box) return false;
+        //    return targets.some(target => {
+        //        return box.row === target.row && box.col === target.col;
+        //    });
+        //});
+
+        // 检查所有箱子是否都在目标点上
+        const allBoxesOnTarget = this.boxes.every(box => {
+            return this.targets.some(target => {
+                return box.x === target.x && box.y === target.y;
+            });
+        });
+

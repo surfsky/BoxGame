@@ -87,8 +87,8 @@ export class AboutScene extends Phaser.Scene {
 
         // 返回按钮
         new Button(this, 30, 30, '', {width:40, height:40, radius:20, icon:'back', iconWidth:30, iconHeight:30})
-            .onClick(()=>{this.scene.start('WelcomeScene');})
             .setOrigin(0, 0).setAnimate()
+            .onClick(()=>{SceneHelper.goScene(this, 'WelcomeScene');})
             ;
     }
 }

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BoxGameScene, Pos } from './BoxGameScene';
+import { BoxGameScene, Pos, ItemType } from './BoxGameScene';
 
 // 定义游戏状态接口
 export interface GameState {
@@ -177,8 +177,8 @@ export class AIController {
             // 注意：这里不修改原始地图，只是为了寻路算法
             if (box && box.row >= 0 && box.row < gameMap.length && 
                 box.col >= 0 && box.col < gameMap[0].length && 
-                gameMap[box.row][box.col] !== 1) {
-                gameMap[box.row][box.col] = 2; // 2表示箱子
+                gameMap[box.row][box.col] !== ItemType.Wall) {
+                gameMap[box.row][box.col] = ItemType.Box; // 2表示箱子
             }
         });
         
@@ -240,7 +240,7 @@ export class AIController {
         // 使用优先队列（模拟）
         const queue: State[] = [initState];
         const visited = new Set<string>();
-        const MAX_DEPTH = 3000; // 进一步增加搜索深度以提高找到解决方案的可能性
+        const MAX_DEPTH = 10000; // 进一步增加搜索深度以提高找到解决方案的可能性
         let depth = 0;
         console.log(`开始搜索，初始状态：玩家位置(${player.row},${player.col})，箱子数量：${boxes.length}，目标点数量：${targets.length}`);
         
@@ -317,7 +317,7 @@ export class AIController {
                     finalBoxCol = nextBoxCol;
 
                     // 如果箱子落在冰块上，模拟滑行
-                    if (map[finalBoxRow][finalBoxCol] === 4) { // 4 代表冰块
+                    if (map[finalBoxRow][finalBoxCol] === ItemType.Ice || map[finalBoxRow][finalBoxCol] === ItemType.BoxOnIce) { // 4 代表冰块
                         let slideBoxR = finalBoxRow;
                         let slideBoxC = finalBoxCol;
                         while (true) {
@@ -337,7 +337,7 @@ export class AIController {
                             finalBoxRow = slideBoxR;
                             finalBoxCol = slideBoxC;
 
-                            if (map[slideBoxR][slideBoxC] !== 4) 
+                            if (map[slideBoxR][slideBoxC] !== ItemType.Ice && map[slideBoxR][slideBoxC] !== ItemType.BoxOnIce) 
                                 break; // 滑到非冰块地面
                         }
                         // 检查滑行后的死锁
@@ -353,7 +353,7 @@ export class AIController {
                     finalPlayerRow = newPlayerRow;
                     finalPlayerCol = newPlayerCol;
                     // 如果玩家落在冰块上，模拟滑行
-                    if (map[finalPlayerRow][finalPlayerCol] === 4) { // 4 代表冰块
+                    if (map[finalPlayerRow][finalPlayerCol] === ItemType.Ice || map[finalPlayerRow][finalPlayerCol] === ItemType.BoxOnIce) { // 4 代表冰块
                         let slidePlayerR = finalPlayerRow;
                         let slidePlayerC = finalPlayerCol;
                         while (true) {
@@ -376,7 +376,7 @@ export class AIController {
                             finalPlayerRow = slidePlayerR;
                             finalPlayerCol = slidePlayerC;
 
-                            if (map[slidePlayerR][slidePlayerC] !== 4) 
+                            if (map[slidePlayerR][slidePlayerC] !== ItemType.Ice && map[slidePlayerR][slidePlayerC] !== ItemType.BoxOnIce) 
                                 break; // 滑到非冰块地面
                         }
                     }
@@ -423,17 +423,20 @@ export class AIController {
         return `${playerStr}:${boxesStr}`;
     }
     
-    // 检查是否所有箱子都在目标点上
-    private isFinish(boxes: Pos[], targets: Pos[]): boolean {
-        if (boxes.length !== targets.length) return false;
-        
-        // 检查每个箱子是否都有对应的目标点
-        return boxes.every(box => {
-            if (!box) return false;
-            return targets.some(target => {
-                return box.row === target.row && box.col === target.col;
-            });
-        });
+    /**检查关卡是否通过：箱子数大于等于目标点数，且每个目标点都有箱子 */
+    public isFinish(boxes: Pos[], targets: Pos[]): boolean {
+        if (boxes.length < targets.length) 
+            return false;
+
+        // 检查每个目标点是否都有箱子
+        for (const target of targets) {
+            if (!target) 
+                continue;
+            const hasBox = boxes.some(box => box && box.row === target.row && box.col === target.col);
+            if (!hasBox) 
+                return false;
+        }
+        return true;
     }
     
     // 检查移动是否有效
@@ -444,7 +447,7 @@ export class AIController {
         // 检查是否在地图范围内且不是墙
         return row >= 0 && row < rows && 
                col >= 0 && col < cols && 
-               map[row][col] !== 1;
+               map[row][col] !== ItemType.Wall;
     }
     
     // 检查箱子是否被推到死角
@@ -473,7 +476,7 @@ export class AIController {
             const newCol = boxCol + dx;
             
             // 如果是墙或超出边界
-            if (newRow < 0 || newRow >= rows || newCol < 0 || newCol >= cols || map[newRow][newCol] === 1) {
+            if (newRow < 0 || newRow >= rows || newCol < 0 || newCol >= cols || map[newRow][newCol] === ItemType.Wall) {
                 wallCount++;
                 wallDirections.push(i);
             }

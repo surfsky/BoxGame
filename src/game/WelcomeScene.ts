@@ -109,7 +109,7 @@ export class WelcomeScene extends Phaser.Scene {
           if (level.unlocked) {
             button.onClick(() => {
                 this.levelManager.setCurrentLevel(index);
-                this.scene.start('BoxGameScene');
+                SceneHelper.goScene(this, 'BoxGameScene');
             })
           }
 

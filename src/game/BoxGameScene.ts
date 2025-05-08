@@ -11,11 +11,28 @@ import { MessageBox } from '../controls/overlays/MessageBox'
 import { DialogResult } from '../controls/overlays/DialogResult'
 import { AIController, GameState } from './AIController'
 
-/**Position */
+/**
+ * Position 
+*/
 export interface Pos{
     name?: string;
     row: number;
     col: number;
+}
+
+/**
+ * 游戏元素类型
+ */
+export enum ItemType {
+    Empty = 8,   // 空地
+    Floor = 0,   // 地板
+    Wall = 1,    // 墙
+    Box = 2,     // 箱子
+    Target = 3,  // 目标点
+    Ice = 4,     // 冰块
+    Block = 5,   // 可移动方块
+    BoxOnIce = 6,// 冰上的箱子=4+2
+    Player = 9   // 玩家
 }
 
 /**
@@ -102,12 +119,36 @@ export class BoxGameScene extends Phaser.Scene {
         this.levelManager = await LevelManager.getIntance();
 
         // 创建游戏元素
+        this.clean();
         this.createTitle();
         this.initMap();
         this.createArrowPad();
         this.setupKeyEvents();
     }
 
+    /**清理当前关卡 */
+    clean() {
+        // 清理所有游戏对象
+        this.walls?.forEach(wall => wall.destroy());
+        this.boxes?.forEach(box => box.destroy());
+        this.targets?.forEach(target => target.destroy());
+        this.ices?.forEach(ice => ice.destroy());
+        this.player?.destroy();
+        this.floorGraphics?.clear();
+        this.iceAndTargetLayer?.destroy();
+        this.wallBoxPlayerLayer?.destroy();
+        
+        // 重置数组
+        this.walls = [];
+        this.boxes = [];
+        this.targets = [];
+        this.ices = [];
+        this.isPlayerSliding = false;
+
+        // ui
+        this.btnAI?.setEnabled(true);
+    }
+    
     //------------------------------------------------------------
     // UI
     //------------------------------------------------------------
@@ -118,7 +159,8 @@ export class BoxGameScene extends Phaser.Scene {
 
         // 返回按钮
         var btnBack = new Button(this, 30, 30, '', {width:40, height:40, radius:20, icon:'back', iconWidth:30, iconHeight:30})
-            .onClick(()=>{this.scene.start('WelcomeScene');}).setOrigin(0, 0.5);
+            .setOrigin(0, 0.5)
+            .onClick(()=>{SceneHelper.goScene(this, 'WelcomeScene');});
         panel.add(btnBack);
 
         // 等级文本
@@ -134,7 +176,7 @@ export class BoxGameScene extends Phaser.Scene {
         // 重置按钮
         var btn = new Button(this, width-40, 30, '', {width:40, height:40, radius:20, icon: 'refresh', iconWidth:30, iconHeight:30})
             .onClick(()=>{
-                this.cleanLevel();
+                this.clean();
                 this.initMap();
             }).setOrigin(0.5);
         panel.add(btn);
@@ -167,26 +209,6 @@ export class BoxGameScene extends Phaser.Scene {
     //------------------------------------------------------------
     // game scene
     //------------------------------------------------------------
-    /**清理当前关卡 */
-    cleanLevel() {
-        // 清理所有游戏对象
-        this.walls.forEach(wall => wall.destroy());
-        this.boxes.forEach(box => box.destroy());
-        this.targets.forEach(target => target.destroy());
-        this.ices.forEach(ice => ice.destroy());
-        this.player.destroy();
-        this.floorGraphics.clear();
-        if (this.iceAndTargetLayer) this.iceAndTargetLayer.destroy();
-        if (this.wallBoxPlayerLayer) this.wallBoxPlayerLayer.destroy();
-        // 重置数组
-        this.walls = [];
-        this.boxes = [];
-        this.targets = [];
-        this.ices = [];
-        this.isPlayerSliding = false;
-        // ui
-        this.btnAI.setEnabled(true);
-    }
 
     /**初始化地图 */
     private initMap() {
@@ -221,36 +243,48 @@ export class BoxGameScene extends Phaser.Scene {
                 const y = row * this.tileSize;
                 var v = this.map[row][col];
                 // 先贴上地板（8表示空地不贴地板）
-                if (v != 8) {
+                if (v != ItemType.Empty) {
                     this.floorGraphics.fillRect(x, y, this.tileSize, this.tileSize);
                 }
                 // 创建冰块地面
-                if (v === 4) {
+                if (v === ItemType.Ice) {
                     const ice = this.add.sprite(x, y, 'ice').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
                     this.setSpiritData(ice, 'ice', row, col);
                     this.iceAndTargetLayer.add(ice);
                     this.ices.push(ice);
                 }
+                // 创建箱子
+                if (v === ItemType.Box) {
+                    const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(4);
+                    this.setSpiritData(box, 'box', row, col);
+                    this.wallBoxPlayerLayer.add(box);
+                    this.boxes.push(box);
+                }
+                // 创建冰块地面
+                if (v === ItemType.BoxOnIce) {
+                    const ice = this.add.sprite(x, y, 'ice').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
+                    this.setSpiritData(ice, 'ice', row, col);
+                    this.iceAndTargetLayer.add(ice);
+                    this.ices.push(ice);
+
+                    const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(4);
+                    this.setSpiritData(box, 'box', row, col);
+                    this.wallBoxPlayerLayer.add(box);
+                    this.boxes.push(box);
+                }
                 // 创建墙
-                if (v === 1) {
+                if (v === ItemType.Wall) {
                     const wall = this.add.sprite(x, y, 'wall').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(2);
                     this.setSpiritData(wall, 'wall', row, col);
                     this.wallBoxPlayerLayer.add(wall);
                     this.walls.push(wall);
                 }
                 // 创建目标点（设置最底层深度）
-                if (v === 3) {
+                if (v === ItemType.Target) {
                     const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(3);
                     this.setSpiritData(target, 'target', row, col);
                     this.iceAndTargetLayer.add(target);
                     this.targets.push(target);
-                }
-                // 创建箱子
-                if (v === 2) {
-                    const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(4);
-                    this.setSpiritData(box, 'box', row, col);
-                    this.wallBoxPlayerLayer.add(box);
-                    this.boxes.push(box);
                 }
             }
         }
@@ -386,7 +420,7 @@ export class BoxGameScene extends Phaser.Scene {
         // 检查是否超出地图边界或撞墙
         if (nextRow < 0 || nextRow >= this.map.length 
             || nextCol < 0 || nextCol >= this.map[0].length 
-            || this.map[nextRow][nextCol] === 1
+            || this.map[nextRow][nextCol] === ItemType.Wall
         ) {
             this.sound.play('error');
             return;
@@ -399,7 +433,7 @@ export class BoxGameScene extends Phaser.Scene {
             // 更新玩家位置，并检查是否在冰面上，如果是则继续滑行
             this.player.setPosition(nextCol * this.tileSize, nextRow * this.tileSize);
             this.player.setData('pos', { row: nextRow, col: nextCol });
-            if (this.map[nextRow][nextCol] === 4) {
+            if (this.map[nextRow][nextCol] === ItemType.Ice || this.map[nextRow][nextCol] === ItemType.BoxOnIce) {
                 this.slidePlayerOnIce(nextRow, nextCol, dx, dy);
             }
         }
@@ -410,7 +444,7 @@ export class BoxGameScene extends Phaser.Scene {
             // 检查箱子移动位置是否合法
             if (boxNextRow < 0 || boxNextRow >= this.map.length || 
                 boxNextCol < 0 || boxNextCol >= this.map[0].length || 
-                this.map[boxNextRow][boxNextCol] === 1 || 
+                this.map[boxNextRow][boxNextCol] === ItemType.Wall || 
                 this.findBox(boxNextRow, boxNextCol)
             ) {
                 this.sound.play('error');
@@ -421,7 +455,7 @@ export class BoxGameScene extends Phaser.Scene {
             box.setPosition(boxNextCol * this.tileSize, boxNextRow * this.tileSize);
             box.setData('pos', { row: boxNextRow, col: boxNextCol });
             this.sound.play('move');
-            if (this.map[boxNextRow][boxNextCol] === 4) {
+            if (this.map[boxNextRow][boxNextCol] === ItemType.Ice || this.map[boxNextRow][boxNextCol] === ItemType.BoxOnIce) {
                 this.slideBoxOnIce(box, boxNextRow, boxNextCol, dx, dy);
             }
 
@@ -434,7 +468,7 @@ export class BoxGameScene extends Phaser.Scene {
     /**查找指定位置的箱子，若存在则返回箱子精灵 */
     private findBox(row: number, col: number) : Phaser.GameObjects.Sprite | undefined{
         return this.boxes.find(box => {
-            var pos = box.getData('pos') as {row:number, col:number};
+            var pos = this.getSpiritData(box);
             return pos.row === row && pos.col === col;
         })
     }
@@ -447,7 +481,7 @@ export class BoxGameScene extends Phaser.Scene {
         // 检查是否可以继续滑行
         if (nextRow < 0 || nextRow >= this.map.length || 
             nextCol < 0 || nextCol >= this.map[0].length || 
-            this.map[nextRow][nextCol] === 1 || 
+            this.map[nextRow][nextCol] === ItemType.Wall  || 
             this.findBox(nextRow, nextCol)
         ) {
             this.isPlayerSliding = false;
@@ -466,7 +500,7 @@ export class BoxGameScene extends Phaser.Scene {
             onComplete: () => {
                 // 如果下一个位置仍然是冰面，继续滑行
                 this.player.setData('pos', { row: nextRow, col: nextCol });
-                if (this.map[nextRow][nextCol] === 4) {
+                if (this.map[nextRow][nextCol] === ItemType.Ice || this.map[nextRow][nextCol] === ItemType.BoxOnIce) {
                     this.slidePlayerOnIce(nextRow, nextCol, dx, dy);
                 }
                 else
@@ -483,7 +517,7 @@ export class BoxGameScene extends Phaser.Scene {
         // 检查是否可以继续滑行
         if (nextRow < 0 || nextRow >= this.map.length || 
             nextCol < 0 || nextCol >= this.map[0].length || 
-            this.map[nextRow][nextCol] === 1 || 
+            this.map[nextRow][nextCol] === ItemType.Wall || 
             this.findBox(nextRow, nextCol)
         ) {
             return; // 遇到障碍物停止滑行
@@ -501,7 +535,7 @@ export class BoxGameScene extends Phaser.Scene {
             onComplete: () => {
                 // 如果下一个位置仍然是冰面，继续滑行
                 box.setData('pos', { row: nextRow, col: nextCol });
-                if (this.map[nextRow][nextCol] === 4) {
+                if (this.map[nextRow][nextCol] === ItemType.Ice || this.map[nextRow][nextCol] === ItemType.BoxOnIce) {
                     this.slideBoxOnIce(box, nextRow, nextCol, dx, dy);
                 }
                 this.checkWinCondition();
@@ -511,13 +545,14 @@ export class BoxGameScene extends Phaser.Scene {
 
     /**检测是否胜利 */
     private checkWinCondition() {
-        // 检查所有箱子是否都在目标点上
-        const allBoxesOnTarget = this.boxes.every(box => {
-            return this.targets.some(target => {
-                return box.x === target.x && box.y === target.y;
+        // 检查所有的目标点是否都有箱子
+        const allTargetsHaveBox = this.targets.every(target => {
+            return this.boxes.some(box => {
+                return target.x === box.x && target.y === box.y;
             });
         });
-        if (allBoxesOnTarget) {
+
+        if (allTargetsHaveBox) {
             if (this.levelManager.hasNextLevel()){
                 this.sndSuccess.play();
                 this.levelManager.unlockNextLevel();
@@ -530,30 +565,40 @@ export class BoxGameScene extends Phaser.Scene {
         }
     }
 
-    /**显示一个对话框，包含一个标题和一个按钮 */
+    /**显示一个对话框，包含一个标题和按钮 */
     private showMessage(title: string, btnText: string, func: () => void) {
         this.popup = new Popup(this, this.cameras.main.centerX, this.cameras.main.centerY, {
-            width: 400,
-            height: 300,
+            width: 350,
+            height: 400,
             backgroundColor: 0xffffff,
             borderRadius: 20,
             modal: true,
             animation: 'scale',
             closeOnClickOutside: false,
             dragable: true
-        })
+        });
 
-        const lblTitle = this.add.text(0, -40, title, {
+        const lblTitle = this.add.text(0, -100, title, {
             fontSize: '32px',
             color: '#000000',
             fontFamily: GameConfig.fonts.title
-        }).setOrigin(0.5)
-        this.popup.add(lblTitle)
+        }).setOrigin(0.5);
+        this.popup.add(lblTitle);
 
-        var btn = new Button(this, 0, 90, btnText)
-            .setOrigin(0.5)
-            .onClick(func)
-        this.popup.add(btn)
+        // 主按钮
+        var btn = new Button(this, 0, 40, btnText).setOrigin(0.5).onClick(func);
+        this.popup.add(btn);
+        
+        // 添加'再玩一次'按钮
+        var replayBtn = new Button(this, 0, 120, '再玩一次').setOrigin(0.5)
+            .onClick(() => {
+                this.popup.hide();
+                this.clean();
+                this.initMap();
+            })
+        this.popup.add(replayBtn);
+
+        //
         this.popup.show()
     }
 
@@ -583,7 +628,7 @@ export class BoxGameScene extends Phaser.Scene {
         if (this.popup.visible){
             this.popup.hide();
             this.levelManager.goNextLevel();
-            this.cleanLevel();
+            this.clean();
             this.initMap();
         }
     }
@@ -592,7 +637,7 @@ export class BoxGameScene extends Phaser.Scene {
     private goFirstLevel() {
         this.popup.hide()
         this.levelManager.resetToFirstLevel()
-        this.cleanLevel()
+        this.clean()
         this.initMap()
     }
 
