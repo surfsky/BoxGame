@@ -13,13 +13,13 @@ import { AIController, GameState } from './AIController'
 
 /**Position */
 export interface Pos{
-    name: string;
+    name?: string;
     row: number;
     col: number;
 }
 
 /**
- * @description: 推箱子游戏场景
+ * 推箱子主游戏场景
  */
 export class BoxGameScene extends Phaser.Scene {
     // data & game spirits
@@ -35,6 +35,8 @@ export class BoxGameScene extends Phaser.Scene {
     private boxes: Phaser.GameObjects.Sprite[] = [];
     private targets: Phaser.GameObjects.Sprite[] = [];
     private ices: Phaser.GameObjects.Sprite[] = [];
+    private iceAndTargetLayer!: Phaser.GameObjects.Container;
+    private wallBoxPlayerLayer!: Phaser.GameObjects.Container;
 
     // controls
     private poseController?: PoseController;
@@ -147,7 +149,7 @@ export class BoxGameScene extends Phaser.Scene {
         panel.add(this.btnPose);
         
         // 添加AI自动过关按钮
-        this.btnAI = new Button(this, width-140, 30, '', {width:40, height:40, radius:20, icon: 'ai', iconWidth:25, iconHeight:25})
+        this.btnAI = new Button(this, width-140, 30, '', {width:40, height:40, radius:20, icon: 'ai', iconWidth:26, iconHeight:26})
             .setOrigin(0.5)
             .setEnabled(true)
             .onClick(async ()=>{ await this.runAI();});
@@ -174,14 +176,14 @@ export class BoxGameScene extends Phaser.Scene {
         this.ices.forEach(ice => ice.destroy());
         this.player.destroy();
         this.floorGraphics.clear();
-        
+        if (this.iceAndTargetLayer) this.iceAndTargetLayer.destroy();
+        if (this.wallBoxPlayerLayer) this.wallBoxPlayerLayer.destroy();
         // 重置数组
         this.walls = [];
         this.boxes = [];
         this.targets = [];
         this.ices = [];
         this.isPlayerSliding = false;
-
         // ui
         this.btnAI.setEnabled(true);
     }
@@ -191,12 +193,10 @@ export class BoxGameScene extends Phaser.Scene {
         // level
         const level = this.levelManager.getCurrLevel();
         this.map = level!.map;
-
         // tileSize 根据map 大小自动调整
         const maxRow = this.map.length;
         const maxCol = this.map[0].length;
         this.tileSize = Math.min((this.cameras.main.width-40) / maxCol, (this.cameras.main.height-this.titleHeight-this.bottomHeight) / maxRow);
-
         // container
         var centerX = this.cameras.main.width / 2;
         var centerY = this.cameras.main.height / 2;
@@ -205,67 +205,64 @@ export class BoxGameScene extends Phaser.Scene {
         this.gameContainer = this.add.container(centerX-containerWidth/2, centerY-containerHeight/2);
         this.gameContainer.setSize(containerWidth, containerHeight);
         this.updateTitle();
-
         // floor
         this.floorGraphics = this.add.graphics();
         this.floorGraphics.fillStyle(0xf0f0f0);
         this.gameContainer.add(this.floorGraphics);
-
+        // 创建两个图层
+        this.iceAndTargetLayer = this.add.container(0, 0);
+        this.wallBoxPlayerLayer = this.add.container(0, 0);
+        this.gameContainer.add(this.iceAndTargetLayer);
+        this.gameContainer.add(this.wallBoxPlayerLayer);
         // 创建地图瓦片和目标点
         for (let row = 0; row < this.map.length; row++) {
             for (let col = 0; col < this.map[0].length; col++) {
                 const x = col * this.tileSize;
                 const y = row * this.tileSize;
                 var v = this.map[row][col];
-
                 // 先贴上地板（8表示空地不贴地板）
                 if (v != 8) {
                     this.floorGraphics.fillRect(x, y, this.tileSize, this.tileSize);
                 }
-
                 // 创建冰块地面
                 if (v === 4) {
-                    const ice = this.add.sprite(x, y, 'ice').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(0);
+                    const ice = this.add.sprite(x, y, 'ice').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
                     this.setSpiritData(ice, 'ice', row, col);
-                    this.gameContainer.add(ice);
+                    this.iceAndTargetLayer.add(ice);
                     this.ices.push(ice);
                 }
-
                 // 创建墙
                 if (v === 1) {
-                    const wall = this.add.sprite(x, y, 'wall').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(1);
+                    const wall = this.add.sprite(x, y, 'wall').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0,0).setDepth(2);
                     this.setSpiritData(wall, 'wall', row, col);
-                    this.gameContainer.add(wall);
+                    this.wallBoxPlayerLayer.add(wall);
                     this.walls.push(wall);
                 }
-                
                 // 创建目标点（设置最底层深度）
                 if (v === 3) {
-                    const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(2);
+                    const target = this.add.sprite(x, y, 'target').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(3);
                     this.setSpiritData(target, 'target', row, col);
-                    this.gameContainer.add(target);
+                    this.iceAndTargetLayer.add(target);
                     this.targets.push(target);
                 }
-                
                 // 创建箱子
                 if (v === 2) {
                     const box = this.add.sprite(x, y, 'box').setDisplaySize(this.tileSize, this.tileSize).setOrigin(0, 0).setDepth(4);
                     this.setSpiritData(box, 'box', row, col);
-                    this.gameContainer.add(box);
+                    this.wallBoxPlayerLayer.add(box);
                     this.boxes.push(box);
                 }
             }
         }
-
         // player position
-        var playerPos = {row: level!.player.row, col: level!.player.col}; // level!.player;  // 不能用引用方式，会导致player数据变化
+        var playerPos = {row: level!.player.row, col: level!.player.col};
         this.player = this.add.sprite(playerPos.col * this.tileSize, playerPos.row * this.tileSize, 'player')
             .setDisplaySize(this.tileSize, this.tileSize)
             .setOrigin(0,0)
             .setDepth(4)
             ;
         this.setSpiritData(this.player, 'player', playerPos.row, playerPos.col);
-        this.gameContainer.add(this.player);
+        this.wallBoxPlayerLayer.add(this.player);
     }
 
     /**获取精灵行列位置数据 */
@@ -375,7 +372,11 @@ export class BoxGameScene extends Phaser.Scene {
     //------------------------------------------------------------
     /**移动玩家精灵 */
     public movePlayer(dx: number, dy: number) {
-        if (this.isPlayerSliding) return;
+        // 循环等待玩家滑行结束
+        if (this.isPlayerSliding) {
+            this.time.delayedCall(100, () => this.movePlayer(dx, dy));
+            return;
+        }        
 
         // 获取玩家相对于地图起始位置的坐标
         const currPos = this.player.getData('pos') as { row: number, col: number };
@@ -538,7 +539,8 @@ export class BoxGameScene extends Phaser.Scene {
             borderRadius: 20,
             modal: true,
             animation: 'scale',
-            closeOnClickOutside: false
+            closeOnClickOutside: false,
+            dragable: true
         })
 
         const lblTitle = this.add.text(0, -40, title, {
@@ -548,7 +550,7 @@ export class BoxGameScene extends Phaser.Scene {
         }).setOrigin(0.5)
         this.popup.add(lblTitle)
 
-        var btn = new Button(this, 0, 100, btnText)
+        var btn = new Button(this, 0, 90, btnText)
             .setOrigin(0.5)
             .onClick(func)
         this.popup.add(btn)

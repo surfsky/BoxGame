@@ -42,7 +42,7 @@ export class WelcomeScene extends Phaser.Scene {
 
     /**创建标题 */
     private createTitle() {
-        this.add.text(this.cameras.main.centerX, 40, '箱子推推看', {
+        this.add.text(this.cameras.main.centerX, 60, '箱子推推看', {
             fontSize: '36px',
             color: '#000000',
             stroke: '#ffffff',
@@ -72,17 +72,10 @@ export class WelcomeScene extends Phaser.Scene {
   /**创建关卡选择面板 */
   private createLevelPanel() {
       const panelWidth = this.game.canvas.width - 40;// 600
-      const panelHeight = this.game.canvas.height - 180; //400
-      const panel = new Panel(
-        this,
-        20,
-        100,
-        panelWidth,
-        panelHeight,
-        panelHeight * 2,
-        10
-      );
+      const panelHeight = this.game.canvas.height - 280; //400
+      const panel = new Panel(this, 20, 200, panelWidth, panelHeight, panelHeight * 2, 10);
 
+      // TODO：考虑直接用 GridLayout 代替
       // 计算起始位置
       const buttonSize = 40;
       const spacing = 10;
