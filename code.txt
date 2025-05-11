@@ -201,3 +201,7 @@
             });
         });
 
+    /**判断值是否处于中间 */
+    private between(value: number, min: number, max: number): boolean {
+        return value >= min && value <= max;
+    }

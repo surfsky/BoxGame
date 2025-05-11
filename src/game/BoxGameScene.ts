@@ -369,9 +369,9 @@ export class BoxGameScene extends Phaser.Scene {
         try {
             Toast.show(this, '体感控制开启中...')
             if (!this.poseController) {
-                this.poseController = new PoseController(this)
+                this.poseController = new PoseController(this, 1, true)
                     .onInit(()=>Toast.show(this, '体感初始化成功'))
-                    .onPose((direction: string)=>{
+                    .onPose((n:number, direction: string)=>{
                         this.setArrowButtonTint(direction);
                         switch (direction) {
                             case 'up':     this.movePlayer(0, -1); break;
@@ -381,8 +381,8 @@ export class BoxGameScene extends Phaser.Scene {
                             case 'ok':     this.closePopup();      break;
                         }
                     });
+                await this.poseController.init();
             }
-            await this.poseController.init();
             await this.poseController.start();
             this.btnPose.setEnabled(true);
         } catch (error) {
@@ -615,7 +615,7 @@ export class BoxGameScene extends Phaser.Scene {
     
     /**关闭对话框 */
     private closePopup(){
-        if (this.popup.visible){
+        if (this.popup && this.popup.visible){
             if (this.levelManager.hasNextLevel())
                 this.goNextLevel();
             else
